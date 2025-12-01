@@ -12,6 +12,7 @@ public class CredentialRepository implements PanacheMongoRepository<Credential> 
         Credential userCredentials = findByEmail(email);
         if (userCredentials != null) {
             boolean matches = BcryptUtil.matches(password, userCredentials.getPassword());
+
             if (matches) {
                 return userCredentials;
             }

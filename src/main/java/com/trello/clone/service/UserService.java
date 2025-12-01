@@ -5,6 +5,7 @@ import com.trello.clone.data.model.User;
 import com.trello.clone.data.repository.CredentialRepository;
 import com.trello.clone.data.repository.UserRepository;
 import com.trello.clone.web.model.CreateUserRequest;
+import com.trello.clone.web.model.UpdateUserEmailRequest;
 import com.trello.clone.web.model.UserResponse;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -61,11 +62,27 @@ public class UserService {
         return toUserResponse(user);
     }
 
-    private UserResponse toUserResponse(User user) {
-        return new UserResponse(
-                user.getEmail(),
-                user.getUsername()
-        );
+    public boolean updateUserEmail(UpdateUserEmailRequest request) {
+        Credential userCredentials = credentialRepository.authenticate(request.getCurrentEmail(), request.getPassword());
+
+        if (userCredentials == null) {
+            return false;
+        }
+
+        if (userCredentials.getEmail().equals(request.getNewEmail())) {
+            return false;
+        }
+
+        User user = userRepository.findByEmail(request.getCurrentEmail());
+        if (user != null) {
+            user.setEmail(request.getNewEmail());
+            userRepository.update(user);
+        }
+
+        userCredentials.setEmail(request.getNewEmail());
+        credentialRepository.update(userCredentials);
+
+        return true;
     }
 
     public UserResponse getUserByEmail(String email) {
@@ -88,5 +105,12 @@ public class UserService {
         else {
             return null;
         }
+    }
+
+    private UserResponse toUserResponse(User user) {
+        return new UserResponse(
+                user.getEmail(),
+                user.getUsername()
+        );
     }
 }
