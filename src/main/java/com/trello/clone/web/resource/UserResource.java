@@ -4,13 +4,13 @@ import com.trello.clone.service.UserService;
 import com.trello.clone.web.model.CreateUserRequest;
 import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.UserResponse;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 @Path("/api/user")
 public class UserResource {
@@ -19,6 +19,28 @@ public class UserResource {
 
     public UserResource(UserService userService) {
         this.userService = userService;
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response getUser(@Context SecurityContext securityContext) {
+        String email = securityContext.getUserPrincipal().getName();
+        UserResponse userResponse = userService.getUserByEmail(email);
+
+        if (userResponse != null) {
+            return Response.status(Response.Status.OK)
+                    .entity(userResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_USER_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
     }
 
     @POST
