@@ -8,6 +8,7 @@ import com.trello.clone.web.model.CreateUserRequest;
 import com.trello.clone.web.model.UserResponse;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.types.ObjectId;
 
 @ApplicationScoped
 public class UserService {
@@ -18,6 +19,21 @@ public class UserService {
     public UserService(UserRepository userRepository, CredentialRepository credentialRepository) {
         this.userRepository = userRepository;
         this.credentialRepository = credentialRepository;
+    }
+
+    public UserResponse authenticate(String username, String password) {
+        Credential credential = credentialRepository.authenticate(username, password);
+
+        if (credential != null) {
+            User user = userRepository.findByEmail(credential.getEmail());
+            if (user != null) {
+                return toUserResponse(user);
+            }
+            else {
+                return null;
+            }
+        }
+        return null;
     }
 
     public UserResponse registerUser(CreateUserRequest createUserRequest) {
@@ -50,5 +66,27 @@ public class UserService {
                 user.getEmail(),
                 user.getUsername()
         );
+    }
+
+    public UserResponse getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email);
+
+        if (user != null) {
+            return toUserResponse(user);
+        }
+        else {
+            return null;
+        }
+    }
+
+    public ObjectId getIdByUser(UserResponse userResponse) {
+        User user =  userRepository.findByEmail(userResponse.getEmail());
+
+        if (user != null) {
+            return user.id;
+        }
+        else {
+            return null;
+        }
     }
 }
