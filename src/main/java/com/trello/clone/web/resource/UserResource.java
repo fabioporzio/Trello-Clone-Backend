@@ -106,4 +106,26 @@ public class UserResource {
                     .build();
         }
     }
+
+    @PUT
+    @Path("/update-password")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response updateUserPassword(@Valid UpdateUserPasswordRequest updateUserPasswordRequest) {
+        boolean updated = userService.updateUserPassword(updateUserPasswordRequest);
+
+        if (updated) {
+            return Response.status(Response.Status.OK)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_EMAIL_UPDATE",
+                            "Email and/or password are incorrect"
+                    ))
+                    .build();
+        }
+    }
 }

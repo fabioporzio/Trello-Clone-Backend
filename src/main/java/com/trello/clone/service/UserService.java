@@ -4,10 +4,7 @@ import com.trello.clone.data.model.Credential;
 import com.trello.clone.data.model.User;
 import com.trello.clone.data.repository.CredentialRepository;
 import com.trello.clone.data.repository.UserRepository;
-import com.trello.clone.web.model.CreateUserRequest;
-import com.trello.clone.web.model.UpdateUserEmailRequest;
-import com.trello.clone.web.model.UpdateUserUsernameRequest;
-import com.trello.clone.web.model.UserResponse;
+import com.trello.clone.web.model.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
@@ -105,6 +102,24 @@ public class UserService {
         else {
             return false;
         }
+    }
+
+    public boolean updateUserPassword(UpdateUserPasswordRequest request) {
+        Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getCurrentPassword());
+
+        if (userCredentials == null) {
+            return false;
+        }
+
+        if (BcryptUtil.matches(request.getNewPassword(), userCredentials.getPassword())) {
+            return false;
+        }
+
+        String newHashedPassword = BcryptUtil.bcryptHash(request.getNewPassword());
+        userCredentials.setPassword(newHashedPassword);
+
+        credentialRepository.update(userCredentials);
+        return true;
     }
 
     public UserResponse getUserByEmail(String email) {
