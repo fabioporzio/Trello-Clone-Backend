@@ -4,7 +4,7 @@ import com.trello.clone.data.model.Credential;
 import com.trello.clone.data.model.User;
 import com.trello.clone.data.repository.CredentialRepository;
 import com.trello.clone.data.repository.UserRepository;
-import com.trello.clone.web.model.*;
+import com.trello.clone.web.model.user.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;

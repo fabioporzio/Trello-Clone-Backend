@@ -1,4 +1,4 @@
-package com.trello.clone.web.model;
+package com.trello.clone.web.model.user;
 
 public class UserResponse {
 

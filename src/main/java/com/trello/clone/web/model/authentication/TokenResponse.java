@@ -1,4 +1,4 @@
-package com.trello.clone.web.model;
+package com.trello.clone.web.model.authentication;
 
 public class TokenResponse {
 

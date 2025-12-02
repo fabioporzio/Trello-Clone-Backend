@@ -2,10 +2,10 @@ package com.trello.clone.web.resource;
 
 import com.trello.clone.data.repository.AuthenticationRepository;
 import com.trello.clone.service.UserService;
-import com.trello.clone.web.model.AccessTokenResponse;
-import com.trello.clone.web.model.LoginRequest;
-import com.trello.clone.web.model.TokenResponse;
-import com.trello.clone.web.model.UserResponse;
+import com.trello.clone.web.model.authentication.AccessTokenResponse;
+import com.trello.clone.web.model.authentication.LoginRequest;
+import com.trello.clone.web.model.authentication.TokenResponse;
+import com.trello.clone.web.model.user.UserResponse;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;

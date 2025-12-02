@@ -1,7 +1,8 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.UserService;
-import com.trello.clone.web.model.*;
+import com.trello.clone.web.model.ErrorResponse;
+import com.trello.clone.web.model.user.*;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;

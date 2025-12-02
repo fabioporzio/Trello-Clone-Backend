@@ -1,4 +1,4 @@
-package com.trello.clone.web.model;
+package com.trello.clone.web.model.user;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
