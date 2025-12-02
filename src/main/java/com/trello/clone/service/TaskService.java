@@ -5,9 +5,8 @@ import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.types.ObjectId;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,6 +17,23 @@ public class TaskService {
 
     public TaskService(TaskRepository taskRepository) {
         this.taskRepository = taskRepository;
+    }
+
+    public List<TaskResponse> getAllTasksByProject(ObjectId projectId) {
+        List<Task> tasks = taskRepository.find("{ projectId: ?1 }", projectId).list();
+
+        if (!tasks.isEmpty()) {
+            List<TaskResponse> taskResponseList = new ArrayList<>();
+
+            for (Task task : tasks) {
+                taskResponseList.add(toTaskResponse(task));
+            }
+
+            return taskResponseList;
+        }
+        else {
+            return null;
+        }
     }
 
     public TaskResponse createTask(CreateTaskRequest createTaskRequest) {

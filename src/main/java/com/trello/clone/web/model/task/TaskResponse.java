@@ -19,11 +19,11 @@ public class TaskResponse {
 
     private List<String> assignees;
 
-    private ZonedDateTime endDate;
+    private String endDate;
 
     private ObjectId projectId;
 
-    public TaskResponse(ObjectId id, String title, String description, String phase, List<String> tags, List<String> assignees, ZonedDateTime endDate,  ObjectId projectId) {
+    public TaskResponse(ObjectId id, String title, String description, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -82,11 +82,11 @@ public class TaskResponse {
         this.assignees = assignees;
     }
 
-    public ZonedDateTime getEndDate() {
+    public String getEndDate() {
         return endDate;
     }
 
-    public void setEndDate(ZonedDateTime endDate) {
+    public void setEndDate(String endDate) {
         this.endDate = endDate;
     }
 

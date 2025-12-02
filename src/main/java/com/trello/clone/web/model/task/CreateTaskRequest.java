@@ -3,7 +3,6 @@ package com.trello.clone.web.model.task;
 import jakarta.validation.constraints.NotBlank;
 import org.bson.types.ObjectId;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 
 public class CreateTaskRequest {
@@ -20,7 +19,7 @@ public class CreateTaskRequest {
 
     private List<String> assignees;
 
-    private ZonedDateTime endDate;
+    private String endDate;
 
     private ObjectId projectId;
 
@@ -64,11 +63,11 @@ public class CreateTaskRequest {
         this.assignees = assignees;
     }
 
-    public ZonedDateTime getEndDate() {
+    public String getEndDate() {
         return endDate;
     }
 
-    public void setEndDate(ZonedDateTime endDate) {
+    public void setEndDate(String endDate) {
         this.endDate = endDate;
     }
 
@@ -78,6 +77,5 @@ public class CreateTaskRequest {
 
     public void setProjectId(ObjectId projectId) {
         this.projectId = projectId;
-
     }
 }

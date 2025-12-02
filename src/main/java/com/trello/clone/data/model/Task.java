@@ -3,7 +3,6 @@ package com.trello.clone.data.model;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import org.bson.types.ObjectId;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 
 @MongoEntity(collection = "tasks")
@@ -21,14 +20,14 @@ public class Task {
 
     private List<String> assignees;
 
-    private ZonedDateTime endDate;
+    public String endDate;
 
     private ObjectId projectId;
 
     public Task() {
     }
 
-    public Task(String title, String description, String phase, List<String> tags, List<String> assignees, ZonedDateTime endDate,  ObjectId projectId) {
+    public Task(String title, String description, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
         this.title = title;
         this.description = description;
         this.phase = phase;
@@ -86,11 +85,11 @@ public class Task {
         this.assignees = assignees;
     }
 
-    public ZonedDateTime getEndDate() {
+    public String getEndDate() {
         return endDate;
     }
 
-    public void setEndDate(ZonedDateTime endDate) {
+    public void setEndDate(String endDate) {
         this.endDate = endDate;
     }
 
