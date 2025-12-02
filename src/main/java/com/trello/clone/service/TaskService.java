@@ -19,6 +19,17 @@ public class TaskService {
         this.taskRepository = taskRepository;
     }
 
+    public TaskResponse getTaskById(ObjectId taskId) {
+        Task task = taskRepository.findById(taskId);
+
+        if (task != null) {
+            return toTaskResponse(task);
+        }
+        else {
+            return null;
+        }
+    }
+
     public List<TaskResponse> getAllTasksByProject(ObjectId projectId) {
         List<Task> tasks = taskRepository.find("{ projectId: ?1 }", projectId).list();
 

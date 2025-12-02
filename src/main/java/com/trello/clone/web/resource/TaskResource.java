@@ -22,6 +22,32 @@ public class TaskResource {
     }
 
     @GET
+    @Path("/{taskId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response getTaskById(
+            @PathParam("taskId") String stringTaskId
+    ) {
+        ObjectId taskId = new ObjectId(stringTaskId);
+        TaskResponse taskResponse = taskService.getTaskById(taskId);
+
+        if (taskResponse != null) {
+            return Response.status(Response.Status.OK)
+                    .entity(taskResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_PROJECT_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
+    }
+
+    @GET
     @Path("/project/{projectId}")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
