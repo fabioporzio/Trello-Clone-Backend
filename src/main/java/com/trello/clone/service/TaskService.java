@@ -67,20 +67,39 @@ public class TaskService {
     public TaskResponse updateTask(UpdateTaskRequest updateTaskRequest, ObjectId taskId) {
         Task task = taskRepository.findById(taskId);
 
-        if (task != null) {
-            task.setTitle(updateTaskRequest.getTitle());
-            task.setDescription(updateTaskRequest.getDescription());
-            task.setPhase(updateTaskRequest.getPhase());
-            task.setTags(updateTaskRequest.getTags());
-            task.setAssignees(updateTaskRequest.getAssignees());
-            task.setEndDate(updateTaskRequest.getEndDate());
-
-            return toTaskResponse(task);
-        }
-        else {
+        if (task == null) {
             return null;
         }
+
+        if (updateTaskRequest.getTitle() != null) {
+            task.setTitle(updateTaskRequest.getTitle());
+        }
+
+        if (updateTaskRequest.getDescription() != null) {
+            task.setDescription(updateTaskRequest.getDescription());
+        }
+
+        if (updateTaskRequest.getPhase() != null) {
+            task.setPhase(updateTaskRequest.getPhase());
+        }
+
+        if (updateTaskRequest.getTags() != null) {
+            task.setTags(updateTaskRequest.getTags());
+        }
+
+        if (updateTaskRequest.getAssignees() != null) {
+            task.setAssignees(updateTaskRequest.getAssignees());
+        }
+
+        if (updateTaskRequest.getEndDate() != null) {
+            task.setEndDate(updateTaskRequest.getEndDate());
+        }
+
+        taskRepository.update(task);
+
+        return toTaskResponse(task);
     }
+
 
     TaskResponse toTaskResponse(Task task) {
         return new TaskResponse(

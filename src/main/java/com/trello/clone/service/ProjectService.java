@@ -59,17 +59,27 @@ public class ProjectService {
     public ProjectResponse updateProject(UpdateProjectRequest updateProjectRequest, ObjectId projectId) {
         Project project = projectRepository.findById(projectId);
 
-        if (project != null) {
-            project.setName(updateProjectRequest.getName());
-            project.setTeam(updateProjectRequest.getTeam());
-            project.setPhases(updateProjectRequest.getPhases());
-            projectRepository.update(project);
-            return toProjectResponse(project);
-        }
-        else {
+        if (project == null) {
             return null;
         }
+
+        if (updateProjectRequest.getName() != null) {
+            project.setName(updateProjectRequest.getName());
+        }
+
+        if (updateProjectRequest.getTeam() != null) {
+            project.setTeam(updateProjectRequest.getTeam());
+        }
+
+        if (updateProjectRequest.getPhases() != null) {
+            project.setPhases(updateProjectRequest.getPhases());
+        }
+
+        projectRepository.update(project);
+
+        return toProjectResponse(project);
     }
+
 
     public ProjectResponse deleteProject(ObjectId projectId) {
         Project project = projectRepository.findById(projectId);
