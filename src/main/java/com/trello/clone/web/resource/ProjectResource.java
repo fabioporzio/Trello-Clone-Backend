@@ -121,5 +121,28 @@ public class ProjectResource {
                     .build();
         }
     }
+
+    @DELETE
+    @Path("/{projectId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response deleteProjectById(@PathParam("projectId") String stringProjectId) {
+        ObjectId projectId = new ObjectId(stringProjectId);
+        ProjectResponse projectResponse = projectService.deleteProject(projectId);
+
+        if (projectResponse != null) {
+            return Response.status(Response.Status.OK)
+                    .entity(projectResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_PROJECT_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
+    }
 }
 

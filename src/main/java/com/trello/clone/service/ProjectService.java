@@ -71,6 +71,18 @@ public class ProjectService {
         }
     }
 
+    public ProjectResponse deleteProject(ObjectId projectId) {
+        Project project = projectRepository.findById(projectId);
+
+        if (project != null) {
+            projectRepository.delete(project);
+            return toProjectResponse(project);
+        }
+        else  {
+            return null;
+        }
+    }
+
     public ProjectResponse toProjectResponse(Project project) {
 
         return new ProjectResponse(
