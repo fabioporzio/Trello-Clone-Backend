@@ -4,7 +4,9 @@ import com.trello.clone.service.TaskService;
 import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
+import com.trello.clone.web.model.task.UpdateTaskRequest;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -78,9 +80,36 @@ public class TaskResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response createTask(
-            CreateTaskRequest createTaskRequest
+            @Valid CreateTaskRequest createTaskRequest
     ) {
         TaskResponse taskResponse = taskService.createTask(createTaskRequest);
+
+        if (taskResponse != null) {
+            return Response.status(Response.Status.OK)
+                    .entity(taskResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_PROJECT_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/{taskId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response updateTask(
+            @PathParam("taskId") String stringTaskId,
+            UpdateTaskRequest updateTaskRequest
+    ) {
+        ObjectId taskId = new ObjectId(stringTaskId);
+        TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId);
 
         if (taskResponse != null) {
             return Response.status(Response.Status.OK)

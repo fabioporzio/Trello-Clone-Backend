@@ -4,6 +4,7 @@ import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
+import com.trello.clone.web.model.task.UpdateTaskRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
 
@@ -61,6 +62,24 @@ public class TaskService {
         taskRepository.persist(task);
 
         return toTaskResponse(task);
+    }
+
+    public TaskResponse updateTask(UpdateTaskRequest updateTaskRequest, ObjectId taskId) {
+        Task task = taskRepository.findById(taskId);
+
+        if (task != null) {
+            task.setTitle(updateTaskRequest.getTitle());
+            task.setDescription(updateTaskRequest.getDescription());
+            task.setPhase(updateTaskRequest.getPhase());
+            task.setTags(updateTaskRequest.getTags());
+            task.setAssignees(updateTaskRequest.getAssignees());
+            task.setEndDate(updateTaskRequest.getEndDate());
+
+            return toTaskResponse(task);
+        }
+        else {
+            return null;
+        }
     }
 
     TaskResponse toTaskResponse(Task task) {
