@@ -2,7 +2,6 @@ package com.trello.clone.web.model.project;
 
 import org.bson.types.ObjectId;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ProjectResponse {
