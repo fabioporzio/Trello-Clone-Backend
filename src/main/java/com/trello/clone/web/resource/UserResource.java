@@ -11,6 +11,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import java.util.List;
+
 @Path("/api/user")
 public class UserResource {
 
@@ -30,6 +32,28 @@ public class UserResource {
         if (userResponse != null) {
             return Response.status(Response.Status.OK)
                     .entity(userResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_USER_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
+    }
+
+    @GET
+    @Path("/all")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response getUser() {
+        List<UserResponse> userResponseList= userService.getAllUsers();
+
+        if (!userResponseList.isEmpty()) {
+            return Response.status(Response.Status.OK)
+                    .entity(userResponseList)
                     .build();
         }
         else {

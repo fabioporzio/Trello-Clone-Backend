@@ -9,6 +9,9 @@ import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @ApplicationScoped
 public class UserService {
 
@@ -127,6 +130,21 @@ public class UserService {
 
         if (user != null) {
             return toUserResponse(user);
+        }
+        else {
+            return null;
+        }
+    }
+
+    public List<UserResponse> getAllUsers() {
+        List<User> users = userRepository.findAll().stream().toList();
+
+        if (!users.isEmpty()) {
+            List<UserResponse> userResponseList = new ArrayList<>();
+            for (User user : users) {
+                userResponseList.add(toUserResponse(user));
+            }
+            return userResponseList;
         }
         else {
             return null;
