@@ -4,12 +4,12 @@ import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
+import com.trello.clone.web.model.project.UpdateProjectRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @ApplicationScoped
 public class ProjectService {
@@ -54,6 +54,21 @@ public class ProjectService {
         projectRepository.persist(project);
 
         return toProjectResponse(project);
+    }
+
+    public ProjectResponse updateProject(UpdateProjectRequest updateProjectRequest, ObjectId projectId) {
+        Project project = projectRepository.findById(projectId);
+
+        if (project != null) {
+            project.setName(updateProjectRequest.getName());
+            project.setTeam(updateProjectRequest.getTeam());
+            project.setPhases(updateProjectRequest.getPhases());
+            projectRepository.update(project);
+            return toProjectResponse(project);
+        }
+        else {
+            return null;
+        }
     }
 
     public ProjectResponse toProjectResponse(Project project) {

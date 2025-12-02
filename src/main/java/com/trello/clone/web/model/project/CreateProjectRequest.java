@@ -1,10 +1,11 @@
 package com.trello.clone.web.model.project;
 
-import java.util.List;
+import jakarta.validation.constraints.NotBlank;
 
 public class CreateProjectRequest {
 
-    String name;
+    @NotBlank(message = "Project name is required")
+    private String name;
 
     public String getName() {
         return name;

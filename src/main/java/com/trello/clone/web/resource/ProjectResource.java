@@ -4,6 +4,7 @@ import com.trello.clone.service.ProjectService;
 import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
+import com.trello.clone.web.model.project.UpdateProjectRequest;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -78,6 +79,33 @@ public class ProjectResource {
     ) {
         String email = securityContext.getUserPrincipal().getName();
         ProjectResponse projectResponse = projectService.createProject(createProjectRequest, email);
+
+        if (projectResponse != null) {
+            return Response.status(Response.Status.OK)
+                    .entity(projectResponse)
+                    .build();
+        }
+        else {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(
+                            "ERROR_DURING_PROJECT_RETRIEVAL",
+                            "An unexpected error occurred"
+                    ))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/{projectId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({"access_token"})
+    public Response updateProject(
+            @PathParam("projectId") String stringProjectId,
+            UpdateProjectRequest updateProjectRequest
+    ) {
+        ObjectId projectId = new ObjectId(stringProjectId);
+        ProjectResponse projectResponse = projectService.updateProject(updateProjectRequest, projectId);
 
         if (projectResponse != null) {
             return Response.status(Response.Status.OK)
