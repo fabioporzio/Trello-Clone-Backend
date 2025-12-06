@@ -1,26 +1,27 @@
 package com.trello.clone.web.model.task;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import org.bson.types.ObjectId;
 
 import java.util.List;
 
 public class CreateTaskRequest {
-    @NotBlank
+
+    @NotEmpty(message = "Task title is required")
+    @NotBlank(message = "Task title is required")
     private String title;
 
-    @NotBlank
+    @NotBlank(message = "Task description is required")
+    @NotBlank(message = "Task description is required")
     private String description;
 
-    @NotBlank
+    @NotBlank(message = "Task phase is required")
+    @NotBlank(message = "Task phase is required")
     private String phase;
 
-    private List<String> tags;
-
-    private List<String> assignees;
-
-    private String endDate;
-
+    @NotBlank(message = "Task's project is required")
+    @NotBlank(message = "Task's project is required")
     private ObjectId projectId;
 
     public String getTitle() {
@@ -45,30 +46,6 @@ public class CreateTaskRequest {
 
     public void setPhase(String phase) {
         this.phase = phase;
-    }
-
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public void setTags(List<String> tags) {
-        this.tags = tags;
-    }
-
-    public List<String> getAssignees() {
-        return assignees;
-    }
-
-    public void setAssignees(List<String> assignees) {
-        this.assignees = assignees;
-    }
-
-    public String getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(String endDate) {
-        this.endDate = endDate;
     }
 
     public ObjectId getProjectId() {
