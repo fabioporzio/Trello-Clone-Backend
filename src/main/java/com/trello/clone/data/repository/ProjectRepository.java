@@ -9,9 +9,8 @@ import java.util.List;
 @ApplicationScoped
 public class ProjectRepository implements PanacheMongoRepository<Project> {
 
-    public List<Project> findByEmailOrTeam(String email) {
-        return find("{'$or':[{'email':?1}, {'team':{'$in':[?1]}}]}", email)
+    public List<Project> findProjectsByEmail(String email) {
+        return find("{'team':{'$in':[?1]}}", email)
                 .list();
     }
-
 }

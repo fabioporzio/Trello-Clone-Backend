@@ -2,6 +2,7 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
+import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
@@ -10,20 +11,22 @@ import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @ApplicationScoped
 public class ProjectService {
-
     private final ProjectRepository projectRepository;
+    private final MergeArraysUtils mergeArraysUtils;
 
-    public ProjectService(ProjectRepository projectRepository) {
+    public ProjectService(ProjectRepository projectRepository, MergeArraysUtils utils) {
         this.projectRepository = projectRepository;
+        this.mergeArraysUtils = utils;
     }
 
-    public List<ProjectResponse> getAllProjectsByUser(String email) {
+    public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
         List<ProjectResponse> projectResponseList = new ArrayList<>();
 
-        List<Project> projects = projectRepository.findByEmailOrTeam(email);
+        List<Project> projects = projectRepository.findProjectsByEmail(email);
 
         for (Project project : projects) {
             projectResponseList.add(toProjectResponse(project));
@@ -56,7 +59,8 @@ public class ProjectService {
         return toProjectResponse(project);
     }
 
-    public ProjectResponse updateProject(UpdateProjectRequest updateProjectRequest, ObjectId projectId) {
+
+    public ProjectResponse updateProject(UpdateProjectRequest updateProjectRequest, ObjectId projectId, String email) {
         Project project = projectRepository.findById(projectId);
 
         if (project == null) {
@@ -67,12 +71,16 @@ public class ProjectService {
             project.setName(updateProjectRequest.getName());
         }
 
-        if (updateProjectRequest.getTeam() != null) {
-            project.setTeam(updateProjectRequest.getTeam());
+        if (updateProjectRequest.getPhases() != null) {
+            project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), updateProjectRequest.getPhases()));
         }
 
-        if (updateProjectRequest.getPhases() != null) {
-            project.setPhases(updateProjectRequest.getPhases());
+        if (Objects.equals(updateProjectRequest.getOwner(), email)) {
+            project.setOwner(updateProjectRequest.getOwner());
+        }
+
+        if (updateProjectRequest.getTeam() != null) {
+            project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), updateProjectRequest.getTeam()));
         }
 
         projectRepository.update(project);
@@ -80,20 +88,24 @@ public class ProjectService {
         return toProjectResponse(project);
     }
 
-
-    public ProjectResponse deleteProject(ObjectId projectId) {
+    public ProjectResponse deleteProject(ObjectId projectId, String email) {
         Project project = projectRepository.findById(projectId);
 
         if (project != null) {
-            projectRepository.delete(project);
-            return toProjectResponse(project);
+            if (Objects.equals(project.getOwner(), email)) {
+                projectRepository.delete(project);
+                return toProjectResponse(project);
+            }
+            else {
+                return null;
+            }
         }
         else  {
             return null;
         }
     }
 
-    public ProjectResponse toProjectResponse(Project project) {
+    public ProjectResponse toProjectResponse (Project project){
 
         return new ProjectResponse(
                 project.getId(),

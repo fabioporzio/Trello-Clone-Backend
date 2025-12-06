@@ -5,9 +5,8 @@ import java.util.List;
 public class UpdateProjectRequest {
 
     private String name;
-
     private List<String> phases;
-
+    private String owner;
     private List<String> team;
 
     public String getName() {
@@ -24,6 +23,14 @@ public class UpdateProjectRequest {
 
     public void setPhases(List<String> phases) {
         this.phases = phases;
+    }
+
+    public String getOwner() {
+        return owner;
+    }
+
+    public void setOwner(String owner) {
+        this.owner = owner;
     }
 
     public List<String> getTeam() {

@@ -7,13 +7,9 @@ import java.util.List;
 public class ProjectResponse {
 
     private ObjectId id;
-
     private String name;
-
     private List<String> phases;
-
     private String owner;
-
     private List<String> team;
 
     public ProjectResponse(ObjectId id, String name, List<String> phases, String owner, List<String> team) {
