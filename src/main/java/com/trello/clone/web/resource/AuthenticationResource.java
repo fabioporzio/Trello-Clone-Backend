@@ -1,6 +1,5 @@
 package com.trello.clone.web.resource;
 
-import com.trello.clone.data.repository.AuthenticationRepository;
 import com.trello.clone.service.UserService;
 import com.trello.clone.web.model.authentication.AccessTokenResponse;
 import com.trello.clone.web.model.authentication.LoginRequest;
@@ -23,18 +22,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 
-@Path("/api/auth")
+@Path("api/auth")
 public class AuthenticationResource {
-
     private final UserService userService;
-    private final AuthenticationRepository authenticationRepository;
 
-    public AuthenticationResource(
-            UserService userService,
-            AuthenticationRepository authenticationRepository
-    ) {
+    public AuthenticationResource(UserService userService) {
         this.userService = userService;
-        this.authenticationRepository = authenticationRepository;
     }
 
     @POST
@@ -51,16 +44,13 @@ public class AuthenticationResource {
         String accessToken = getAccessToken(user);
         String refreshToken = getRefreshToken(user);
 
-        boolean success = authenticationRepository.saveRefreshToken(refreshToken, user.getEmail());
-
-        if (success) {
+        if (accessToken != null && refreshToken != null) {
             return Response.ok(new TokenResponse(accessToken, refreshToken)).build();
         }
         else {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .build();
         }
-
     }
 
     @POST
@@ -71,21 +61,16 @@ public class AuthenticationResource {
     public Response refresh(@Context SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
 
-        if (authenticationRepository.isRefreshTokenValid(email)) {
-            UserResponse user = userService.getUserByEmail(email);
-            if (user == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                        .build();
-            }
-            String accessToken = getAccessToken(user);
-            return Response.ok(new AccessTokenResponse(accessToken)).build();
-        }
-        else {
+        UserResponse user = userService.getUserByEmail(email);
+        if (user == null) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .build();
         }
+        else {
+            String accessToken = getAccessToken(user);
+            return Response.ok(new AccessTokenResponse(accessToken)).build();
+        }
     }
-
 
     private String getAccessToken(UserResponse user) {
         ObjectId id = userService.getIdByUser(user);
