@@ -6,9 +6,9 @@ import org.bson.types.ObjectId;
 @MongoEntity(collection = "credentials")
 public class Credential {
 
-    public ObjectId id;
-    public String email;
-    public String password;
+    private ObjectId id;
+    private String email;
+    private String password;
 
     public Credential() {
     }
