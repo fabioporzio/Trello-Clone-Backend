@@ -5,7 +5,6 @@ import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
-import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;

@@ -8,6 +8,7 @@ public class UpdateProjectRequest {
     private List<String> phases;
     private String owner;
     private List<String> team;
+    private List<String> invitedUsers;
 
     public String getName() {
         return name;
@@ -39,5 +40,13 @@ public class UpdateProjectRequest {
 
     public void setTeam(List<String> team) {
         this.team = team;
+    }
+
+    public List<String> getInvitedUsers() {
+        return invitedUsers;
+    }
+
+    public void setInvitedUsers(List<String> invitedUsers) {
+        this.invitedUsers = invitedUsers;
     }
 }

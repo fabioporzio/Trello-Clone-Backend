@@ -2,7 +2,6 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
-import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
@@ -16,11 +15,9 @@ import java.util.Objects;
 @ApplicationScoped
 public class ProjectService {
     private final ProjectRepository projectRepository;
-    private final MergeArraysUtils mergeArraysUtils;
 
-    public ProjectService(ProjectRepository projectRepository, MergeArraysUtils utils) {
+    public ProjectService(ProjectRepository projectRepository) {
         this.projectRepository = projectRepository;
-        this.mergeArraysUtils = utils;
     }
 
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
@@ -47,11 +44,14 @@ public class ProjectService {
 
         List<String> phases = new ArrayList<>();
 
+        List<String> invitedUsers = new ArrayList<>();
+
         Project project = new Project(
                 createProjectRequest.getName(),
                 phases,
                 email,
-                team
+                team,
+                invitedUsers
         );
 
         projectRepository.persist(project);
@@ -72,7 +72,7 @@ public class ProjectService {
         }
 
         if (updateProjectRequest.getPhases() != null) {
-            project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), updateProjectRequest.getPhases()));
+            project.setPhases(updateProjectRequest.getPhases());
         }
 
         if (Objects.equals(updateProjectRequest.getOwner(), email)) {
@@ -80,7 +80,11 @@ public class ProjectService {
         }
 
         if (updateProjectRequest.getTeam() != null) {
-            project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), updateProjectRequest.getTeam()));
+            project.setTeam(updateProjectRequest.getTeam());
+        }
+
+        if (updateProjectRequest.getInvitedUsers() != null) {
+            project.setInvitedUsers(updateProjectRequest.getInvitedUsers());
         }
 
         projectRepository.update(project);
@@ -112,7 +116,8 @@ public class ProjectService {
                 project.getName(),
                 project.getPhases(),
                 project.getOwner(),
-                project.getTeam()
+                project.getTeam(),
+                project.getInvitedUsers()
         );
     }
 }

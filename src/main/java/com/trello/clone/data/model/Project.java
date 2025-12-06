@@ -13,15 +13,17 @@ public class Project {
     List<String> phases;
     String owner;
     List<String> team;
+    List<String> invitedUsers;
 
     public Project() {
     }
 
-    public Project(String name, List<String> phases, String owner, List<String> team) {
+    public Project(String name, List<String> phases, String owner, List<String> team,  List<String> invitedUsers) {
         this.name = name;
         this.phases = phases;
         this.owner = owner;
         this.team = team;
+        this.invitedUsers = invitedUsers;
     }
 
     public ObjectId getId() {
@@ -62,5 +64,13 @@ public class Project {
 
     public void setTeam(List<String> team) {
         this.team = team;
+    }
+
+    public List<String> getInvitedUsers() {
+        return invitedUsers;
+    }
+
+    public void setInvitedUsers(List<String> invitedUsers) {
+        this.invitedUsers = invitedUsers;
     }
 }
