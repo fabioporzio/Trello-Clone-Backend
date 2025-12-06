@@ -3,6 +3,8 @@ package com.trello.clone.web.resource;
 import com.trello.clone.service.UserService;
 import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.user.*;
+import jakarta.annotation.security.DenyAll;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -13,7 +15,10 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.List;
 
-@Path("/api/user")
+@DenyAll
+@Path("api/user")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
     private final UserService userService;
@@ -48,7 +53,7 @@ public class UserResource {
     @Path("/all")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getUser() {
+    public Response getAllUsers() {
         List<UserResponse> userResponseList= userService.getAllUsers();
 
         if (!userResponseList.isEmpty()) {
@@ -70,6 +75,7 @@ public class UserResource {
     @Path("/register")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
+    @PermitAll
     public Response registerUser(@Valid CreateUserRequest createUserRequest) {
         UserResponse userResponse = userService.registerUser(createUserRequest);
 
@@ -94,9 +100,9 @@ public class UserResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserEmail(@Valid UpdateUserEmailRequest updateUserEmailRequest) {
-        boolean updated = userService.updateUserEmail(updateUserEmailRequest);
+        UserResponse userResponse = userService.updateUserEmail(updateUserEmailRequest);
 
-        if (updated) {
+        if (userResponse != null) {
             return Response.status(Response.Status.OK)
                     .build();
         }
@@ -116,16 +122,16 @@ public class UserResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserUsername(@Valid UpdateUserUsernameRequest updateUserUsernameRequest) {
-        boolean updated = userService.updateUserUsername(updateUserUsernameRequest);
+        UserResponse userResponse = userService.updateUserUsername(updateUserUsernameRequest);
 
-        if (updated) {
+        if (userResponse != null) {
             return Response.status(Response.Status.OK)
                     .build();
         }
         else {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse(
-                            "ERROR_DURING_EMAIL_UPDATE",
+                            "ERROR_DURING_USERNAME_UPDATE",
                             "Email and/or password are incorrect"
                     ))
                     .build();
@@ -138,9 +144,9 @@ public class UserResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserPassword(@Valid UpdateUserPasswordRequest updateUserPasswordRequest) {
-        boolean updated = userService.updateUserPassword(updateUserPasswordRequest);
+        UserResponse userResponse = userService.updateUserPassword(updateUserPasswordRequest);
 
-        if (updated) {
+        if (userResponse != null) {
             return Response.status(Response.Status.OK)
                     .build();
         }

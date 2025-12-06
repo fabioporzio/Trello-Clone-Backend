@@ -14,11 +14,10 @@ import java.util.List;
 
 @ApplicationScoped
 public class UserService {
-
     private final UserRepository userRepository;
     private final CredentialRepository credentialRepository;
 
-    public UserService(UserRepository userRepository, CredentialRepository credentialRepository) {
+    public UserService(UserRepository userRepository,  CredentialRepository credentialRepository) {
         this.userRepository = userRepository;
         this.credentialRepository = credentialRepository;
     }
@@ -63,66 +62,56 @@ public class UserService {
         return toUserResponse(user);
     }
 
-    public boolean updateUserEmail(UpdateUserEmailRequest request) {
+    public UserResponse updateUserEmail(UpdateUserEmailRequest request) {
         Credential userCredentials = credentialRepository.authenticate(request.getCurrentEmail(), request.getPassword());
 
         if (userCredentials == null) {
-            return false;
+            return null;
         }
 
         if (userCredentials.getEmail().equals(request.getNewEmail())) {
-            return false;
+            return null;
+        }
+
+        boolean exists = userRepository.count("email", request.getNewEmail()) > 0;
+        if (exists) {
+            return null;
         }
 
         User user = userRepository.findByEmail(request.getCurrentEmail());
         if (user != null) {
             user.setEmail(request.getNewEmail());
             userRepository.update(user);
+
+            userCredentials.setEmail(request.getNewEmail());
+            credentialRepository.update(userCredentials);
+
+            return toUserResponse(user);
         }
-
-        userCredentials.setEmail(request.getNewEmail());
-        credentialRepository.update(userCredentials);
-
-        return true;
+        else {
+            return null;
+        }
     }
 
-    public boolean updateUserUsername(UpdateUserUsernameRequest request) {
+    public UserResponse updateUserUsername(UpdateUserUsernameRequest request) {
         Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getPassword());
 
         if (userCredentials == null) {
-            return false;
+            return null;
         }
 
         User user = userRepository.findByEmail(request.getEmail());
         if (user != null) {
             if (user.getUsername().equals(request.getNewUsername())) {
-                return false;
+                return null;
             }
             user.setUsername(request.getNewUsername());
             userRepository.update(user);
-            return true;
+            return toUserResponse(user);
         }
         else {
-            return false;
+            return null;
         }
-    }
-
-    public boolean updateUserPassword(UpdateUserPasswordRequest request) {
-        Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getCurrentPassword());
-
-        if (userCredentials == null) {
-            return false;
-        }
-
-        if (BcryptUtil.matches(request.getNewPassword(), userCredentials.getPassword())) {
-            return false;
-        }
-
-        String newHashedPassword = BcryptUtil.bcryptHash(request.getNewPassword());
-        userCredentials.setPassword(newHashedPassword);
-
-        credentialRepository.update(userCredentials);
-        return true;
     }
 
     public UserResponse getUserByEmail(String email) {
@@ -130,6 +119,35 @@ public class UserService {
 
         if (user != null) {
             return toUserResponse(user);
+        }
+        else {
+            return null;
+        }
+    }
+
+    public UserResponse updateUserPassword(UpdateUserPasswordRequest request) {
+        Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getCurrentPassword());
+
+        if (userCredentials == null) {
+            return null;
+        }
+
+        if (BcryptUtil.matches(request.getNewPassword(), userCredentials.getPassword())) {
+            return null;
+        }
+
+        String newHashedPassword = BcryptUtil.bcryptHash(request.getNewPassword());
+        userCredentials.setPassword(newHashedPassword);
+
+        credentialRepository.update(userCredentials);
+        return toUserResponse(userRepository.findByEmail(request.getEmail()));
+    }
+
+    public ObjectId getIdByUser(UserResponse userResponse) {
+        User user =  userRepository.findByEmail(userResponse.getEmail());
+
+        if (user != null) {
+            return user.getId();
         }
         else {
             return null;
@@ -151,18 +169,7 @@ public class UserService {
         }
     }
 
-    public ObjectId getIdByUser(UserResponse userResponse) {
-        User user =  userRepository.findByEmail(userResponse.getEmail());
-
-        if (user != null) {
-            return user.id;
-        }
-        else {
-            return null;
-        }
-    }
-
-    private UserResponse toUserResponse(User user) {
+    private static UserResponse toUserResponse(User user) {
         return new UserResponse(
                 user.getEmail(),
                 user.getUsername()
