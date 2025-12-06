@@ -2,10 +2,12 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.TaskRepository;
+import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.NotFoundException;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
@@ -15,9 +17,11 @@ import java.util.List;
 public class TaskService {
 
     private final TaskRepository taskRepository;
+    private final MergeArraysUtils mergeArraysUtils;
 
-    public TaskService(TaskRepository taskRepository) {
+    public TaskService(TaskRepository taskRepository,  MergeArraysUtils utils) {
         this.taskRepository = taskRepository;
+        this.mergeArraysUtils = utils;
     }
 
     public TaskResponse getTaskById(ObjectId taskId) {
@@ -32,7 +36,7 @@ public class TaskService {
     }
 
     public List<TaskResponse> getAllTasksByProject(ObjectId projectId) {
-        List<Task> tasks = taskRepository.find("{ projectId: ?1 }", projectId).list();
+        List<Task> tasks = taskRepository.getTasksByProjectId(projectId);
 
         if (!tasks.isEmpty()) {
             List<TaskResponse> taskResponseList = new ArrayList<>();
@@ -52,10 +56,11 @@ public class TaskService {
         Task task = new Task(
                 createTaskRequest.getTitle(),
                 createTaskRequest.getDescription(),
+                false,
                 createTaskRequest.getPhase(),
-                createTaskRequest.getTags(),
-                createTaskRequest.getAssignees(),
-                createTaskRequest.getEndDate(),
+                null,
+                null,
+                null,
                 createTaskRequest.getProjectId()
         );
 
@@ -66,29 +71,32 @@ public class TaskService {
 
     public TaskResponse updateTask(UpdateTaskRequest updateTaskRequest, ObjectId taskId) {
         Task task = taskRepository.findById(taskId);
-
         if (task == null) {
-            return null;
+            throw new NotFoundException("Task not found: " + taskId);
         }
 
         if (updateTaskRequest.getTitle() != null) {
-            task.setTitle(updateTaskRequest.getTitle());
+            task.setTitle(updateTaskRequest.getTitle().trim());
         }
 
         if (updateTaskRequest.getDescription() != null) {
-            task.setDescription(updateTaskRequest.getDescription());
+            task.setDescription(updateTaskRequest.getDescription().trim());
         }
 
         if (updateTaskRequest.getPhase() != null) {
-            task.setPhase(updateTaskRequest.getPhase());
+            task.setPhase(updateTaskRequest.getPhase().trim());
+        }
+
+        if (updateTaskRequest.getCompleted() != null) {
+            task.setCompleted(updateTaskRequest.getCompleted());
         }
 
         if (updateTaskRequest.getTags() != null) {
-            task.setTags(updateTaskRequest.getTags());
+            task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), updateTaskRequest.getTags()));
         }
 
         if (updateTaskRequest.getAssignees() != null) {
-            task.setAssignees(updateTaskRequest.getAssignees());
+            task.setTags(mergeArraysUtils.mergeDistinct(task.getAssignees(), updateTaskRequest.getAssignees()));
         }
 
         if (updateTaskRequest.getEndDate() != null) {
@@ -100,17 +108,34 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
+    public TaskResponse deleteTask(ObjectId taskId, String email) {
+        Task task = taskRepository.findById(taskId);
+
+        if (task != null) {
+            if (task.getAssignees().contains(email) || task.getAssignees().isEmpty()) {
+                taskRepository.delete(task);
+                return toTaskResponse(task);
+            }
+            else {
+                return null;
+            }
+        }
+        else  {
+            return null;
+        }
+    }
 
     TaskResponse toTaskResponse(Task task) {
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
                 task.getDescription(),
+                task.isCompleted(),
                 task.getPhase(),
                 task.getTags(),
                 task.getAssignees(),
                 task.getEndDate(),
-                task.getProjectId()
+                task.getIdProject()
         );
     }
 }

@@ -9,32 +9,27 @@ import java.util.List;
 public class Task {
 
     private ObjectId id;
-
     private String title;
-
     private String description;
-
+    private boolean completed;
     private String phase;
-
     private List<String> tags;
-
     private List<String> assignees;
-
-    public String endDate;
-
-    private ObjectId projectId;
+    private String endDate;
+    private ObjectId idProject;
 
     public Task() {
     }
 
-    public Task(String title, String description, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
+    public Task(String title, String description, boolean completed, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId idProject) {
         this.title = title;
         this.description = description;
+        this.completed = completed;
         this.phase = phase;
         this.tags = tags;
         this.assignees = assignees;
         this.endDate = endDate;
-        this.projectId = projectId;
+        this.idProject = idProject;
     }
 
     public ObjectId getId() {
@@ -59,6 +54,14 @@ public class Task {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
     }
 
     public String getPhase() {
@@ -93,11 +96,11 @@ public class Task {
         this.endDate = endDate;
     }
 
-    public ObjectId getProjectId() {
-        return projectId;
+    public ObjectId getIdProject() {
+        return idProject;
     }
 
-    public void setProjectId(ObjectId projectId) {
-        this.projectId = projectId;
+    public void setIdProject(ObjectId idProject) {
+        this.idProject = idProject;
     }
 }

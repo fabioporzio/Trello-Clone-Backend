@@ -2,31 +2,25 @@ package com.trello.clone.web.model.task;
 
 import org.bson.types.ObjectId;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 
 public class TaskResponse {
 
     private ObjectId id;
-
     private String title;
-
     private String description;
-
+    private boolean completed;
     private String phase;
-
     private List<String> tags;
-
     private List<String> assignees;
-
     private String endDate;
-
     private ObjectId projectId;
 
-    public TaskResponse(ObjectId id, String title, String description, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
+    public TaskResponse(ObjectId id, String title, String description, boolean completed, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
         this.id = id;
         this.title = title;
         this.description = description;
+        this.completed = completed;
         this.phase = phase;
         this.tags = tags;
         this.assignees = assignees;
@@ -56,6 +50,14 @@ public class TaskResponse {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
     }
 
     public String getPhase() {

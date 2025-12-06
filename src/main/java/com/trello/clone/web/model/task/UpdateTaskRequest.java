@@ -5,15 +5,11 @@ import java.util.List;
 public class UpdateTaskRequest {
 
     private String title;
-
     private String description;
-
+    private Boolean completed;
     private String phase;
-
     private List<String> tags;
-
     private List<String> assignees;
-
     private String endDate;
 
     public String getTitle() {
@@ -62,5 +58,13 @@ public class UpdateTaskRequest {
 
     public void setEndDate(String endDate) {
         this.endDate = endDate;
+    }
+
+    public Boolean getCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(Boolean completed) {
+        this.completed = completed;
     }
 }
