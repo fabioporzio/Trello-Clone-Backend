@@ -1,7 +1,7 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.TaskService;
-import com.trello.clone.web.model.ErrorResponse;
+import com.trello.clone.web.model.exception.ErrorResponse;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;

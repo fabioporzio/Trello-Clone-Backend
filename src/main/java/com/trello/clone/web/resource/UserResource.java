@@ -1,7 +1,6 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.UserService;
-import com.trello.clone.web.model.ErrorResponse;
 import com.trello.clone.web.model.user.*;
 import jakarta.annotation.security.DenyAll;
 import jakarta.annotation.security.PermitAll;
@@ -32,21 +31,12 @@ public class UserResource {
     @RolesAllowed({"access_token"})
     public Response getUser(@Context SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
+
         UserResponse userResponse = userService.getUserByEmail(email);
 
-        if (userResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(userResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_USER_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.status(Response.Status.OK)
+                .entity(userResponse)
+                .build();
     }
 
     @GET
@@ -54,21 +44,9 @@ public class UserResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getAllUsers() {
-        List<UserResponse> userResponseList= userService.getAllUsers();
+        List<UserResponse> userResponseList = userService.getAllUsers();
 
-        if (!userResponseList.isEmpty()) {
-            return Response.status(Response.Status.OK)
-                    .entity(userResponseList)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_USER_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok(userResponseList).build();
     }
 
     @POST
@@ -78,20 +56,9 @@ public class UserResource {
     @PermitAll
     public Response registerUser(@Valid CreateUserRequest createUserRequest) {
         UserResponse userResponse = userService.registerUser(createUserRequest);
-
-        if (userResponse != null) {
-            return Response.status(Response.Status.CREATED)
-                    .entity(userResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_USER_REGISTRATION",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.status(Response.Status.CREATED)
+                .entity(userResponse)
+                .build();
     }
 
     @PUT
@@ -101,19 +68,9 @@ public class UserResource {
     @RolesAllowed({"access_token"})
     public Response updateUserEmail(@Valid UpdateUserEmailRequest updateUserEmailRequest) {
         UserResponse userResponse = userService.updateUserEmail(updateUserEmailRequest);
-
-        if (userResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_EMAIL_UPDATE",
-                            "Email and/or password are incorrect"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(userResponse)
+                .build();
     }
 
     @PUT
@@ -121,42 +78,24 @@ public class UserResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response updateUserUsername(@Valid UpdateUserUsernameRequest updateUserUsernameRequest) {
-        UserResponse userResponse = userService.updateUserUsername(updateUserUsernameRequest);
-
-        if (userResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_USERNAME_UPDATE",
-                            "Email and/or password are incorrect"
-                    ))
-                    .build();
-        }
+    public Response updateUserUsername(@Valid UpdateUserUsernameRequest request) {
+        UserResponse userResponse = userService.updateUserUsername(request);
+        return Response.ok()
+                .entity(userResponse)
+                .build();
     }
+
 
     @PUT
     @Path("/update-password")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response updateUserPassword(@Valid UpdateUserPasswordRequest updateUserPasswordRequest) {
-        UserResponse userResponse = userService.updateUserPassword(updateUserPasswordRequest);
-
-        if (userResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_EMAIL_UPDATE",
-                            "Email and/or password are incorrect"
-                    ))
-                    .build();
-        }
+    public Response updateUserPassword(@Valid UpdateUserPasswordRequest request) {
+        UserResponse userResponse = userService.updateUserPassword(request);
+        return Response.ok()
+                .entity(userResponse)
+                .build();
     }
+
 }

@@ -1,7 +1,7 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.ProjectService;
-import com.trello.clone.web.model.ErrorResponse;
+import com.trello.clone.web.model.exception.ErrorResponse;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;

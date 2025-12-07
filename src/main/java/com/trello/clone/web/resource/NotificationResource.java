@@ -1,7 +1,7 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.NotificationService;
-import com.trello.clone.web.model.ErrorResponse;
+import com.trello.clone.web.model.exception.ErrorResponse;
 import com.trello.clone.web.model.notification.CreateNotificationRequest;
 import com.trello.clone.web.model.notification.NotificationResponse;
 import jakarta.annotation.security.RolesAllowed;
