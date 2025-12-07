@@ -15,6 +15,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import org.bson.types.ObjectId;
 
 import java.util.List;
+import java.util.Map;
 
 @DenyAll
 @Path("/api/task")
@@ -47,9 +48,9 @@ public class TaskResource {
     @RolesAllowed({"access_token"})
     public Response getTasksByProjectId(@PathParam("projectId") String stringProjectId) {
         ObjectId projectId = new ObjectId(stringProjectId);
-        List<TaskResponse> taskResponseList = taskService.getAllTasksByProject(projectId);
+        Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(projectId);
         return Response.ok()
-                .entity(taskResponseList)
+                .entity(mappedTasks)
                 .build();
     }
 

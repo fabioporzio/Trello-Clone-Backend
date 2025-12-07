@@ -14,7 +14,9 @@ import jakarta.ws.rs.NotFoundException;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @ApplicationScoped
 public class TaskService {
@@ -44,23 +46,27 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
-    public List<TaskResponse> getAllTasksByProject(ObjectId projectId) {
+    public Map<String, List<TaskResponse>> getAllTasksByProject(ObjectId projectId) {
         List<Task> tasks;
         try {
             tasks = taskRepository.getTasksByProjectId(projectId);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new GenericException("Failed to retrieve tasks due to server error");
         }
 
-        List<TaskResponse> taskResponseList = new ArrayList<>();
+        Map<String, List<TaskResponse>> groupedTasks = new HashMap<>();
 
         for (Task task : tasks) {
-            taskResponseList.add(toTaskResponse(task));
+            TaskResponse taskResponse = toTaskResponse(task);
+            String phase = task.getPhase();
+
+            groupedTasks.putIfAbsent(phase, new ArrayList<>());
+            groupedTasks.get(phase).add(taskResponse);
         }
 
-        return taskResponseList;
+        return groupedTasks;
     }
+
 
     public TaskResponse createTask(CreateTaskRequest request) {
         Task task = new Task(
