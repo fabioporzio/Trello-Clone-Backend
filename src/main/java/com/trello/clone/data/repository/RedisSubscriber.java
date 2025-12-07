@@ -31,6 +31,11 @@ public class RedisSubscriber {
     }
 
     private void handleMessage(String message) {
+        if (!message.startsWith("trello-clone|deadline|task")) {
+            System.out.println("Ignoring message: " + message);
+            return; // Ignora chiavi che non appartengono alla categoria "task"
+        }
+
         System.out.println(message);
         String[] splitMessage = message.split("\\|");
         String stringTaskId = splitMessage[3];
