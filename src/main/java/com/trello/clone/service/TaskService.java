@@ -180,7 +180,7 @@ public class TaskService {
                 task.getTags(),
                 task.getAssignees(),
                 task.getEndDate(),
-                task.getIdProject()
+                task.getProjectId()
         );
     }
 }

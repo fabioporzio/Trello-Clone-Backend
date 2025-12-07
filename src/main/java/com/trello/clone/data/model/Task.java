@@ -16,12 +16,12 @@ public class Task {
     private List<String> tags;
     private List<String> assignees;
     private String endDate;
-    private ObjectId idProject;
+    private ObjectId projectId;
 
     public Task() {
     }
 
-    public Task(String title, String description, boolean completed, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId idProject) {
+    public Task(String title, String description, boolean completed, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
         this.title = title;
         this.description = description;
         this.completed = completed;
@@ -29,7 +29,7 @@ public class Task {
         this.tags = tags;
         this.assignees = assignees;
         this.endDate = endDate;
-        this.idProject = idProject;
+        this.projectId = projectId;
     }
 
     public ObjectId getId() {
@@ -96,11 +96,11 @@ public class Task {
         this.endDate = endDate;
     }
 
-    public ObjectId getIdProject() {
-        return idProject;
+    public ObjectId getProjectId() {
+        return projectId;
     }
 
-    public void setIdProject(ObjectId idProject) {
-        this.idProject = idProject;
+    public void setProjectId(ObjectId projectId) {
+        this.projectId = projectId;
     }
 }
