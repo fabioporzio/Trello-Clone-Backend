@@ -38,7 +38,6 @@ public class UserService {
         return toUserResponse(user);
     }
 
-
     public UserResponse registerUser(CreateUserRequest createUserRequest) {
         boolean exists = userRepository.count("email", createUserRequest.getEmail()) > 0;
         if (exists) {

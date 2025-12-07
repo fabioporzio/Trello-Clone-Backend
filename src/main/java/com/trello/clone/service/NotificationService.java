@@ -27,15 +27,14 @@ public class NotificationService {
         }
 
         return receivedNotificationResponses;
-
     }
 
-    public boolean addProjectNotification(CreateNotificationRequest createNotificationRequest, Object projectId) {
-        return this.notificationRepository.addProjectNotification(createNotificationRequest, projectId);
+    public void addProjectNotification(CreateNotificationRequest createNotificationRequest, Object projectId) {
+        this.notificationRepository.addProjectNotification(createNotificationRequest, projectId);
     }
 
-    public boolean addTaskNotification(CreateNotificationRequest createNotificationRequest, Object taskId) {
-        return this.notificationRepository.addTaskNotification(createNotificationRequest, taskId);
+    public void addTaskNotification(CreateNotificationRequest createNotificationRequest, Object taskId) {
+        this.notificationRepository.addTaskNotification(createNotificationRequest, taskId);
     }
 
     public NotificationResponse deleteNotification(String receiver, String sender, String taskOrProject, String issuedAt, String taskOrProjectId) {

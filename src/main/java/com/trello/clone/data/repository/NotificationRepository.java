@@ -2,6 +2,7 @@ package com.trello.clone.data.repository;
 
 import com.trello.clone.data.model.Notification;
 import com.trello.clone.data.model.Task;
+import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.web.model.notification.CreateNotificationRequest;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.RedisDataSource;
@@ -22,7 +23,10 @@ public class NotificationRepository {
     private final ValueCommands<String, String> stringCommands;
     private final ReactiveValueCommands<String, String> reactiveStringCommands;
 
-    public NotificationRepository(RedisDataSource redisDataSource, ReactiveRedisDataSource reactiveRedisDataSource) {
+    public NotificationRepository(
+            RedisDataSource redisDataSource,
+            ReactiveRedisDataSource reactiveRedisDataSource
+    ) {
         keyCommands = redisDataSource.key();
         stringCommands = redisDataSource.value(String.class);
         reactiveStringCommands = reactiveRedisDataSource.value(String.class);
@@ -32,7 +36,11 @@ public class NotificationRepository {
     long twoDaysTtl = 2 * 24 * 60 * 60;
 
     public List<Notification> getNotifications(String email) {
-        List<String> keys = keyCommands.keys("trello-clone|users|" + email + "|notifications|received|*");
+        List<String> keys = keyCommands.keys(
+                "trello-clone|users|" +
+                        email +
+                        "|notifications|received|*"
+        );
 
         List<Notification> notifications = new ArrayList<>();
         for (String key : keys) {
@@ -52,20 +60,50 @@ public class NotificationRepository {
         return notifications;
     }
 
-    public boolean addProjectNotification(CreateNotificationRequest request, Object projectId) {
-        String key = "trello-clone|users|" + request.getReceiver() + "|notifications|project|" + projectId + "|" + request.getSender() + "|" + request.getIssuedAt();
-        String message = "You have been invited to project " + request.getProjectOrTaskName() + " by " + request.getSender();
+    public void addProjectNotification(CreateNotificationRequest request, Object projectId) {
+        String key = "trello-clone|users|" +
+                request.getReceiver() +
+                "|notifications|project|" +
+                projectId + "|" +
+                request.getSender() + "|" +
+                request.getIssuedAt();
+
+        String message = "You have been invited to project " +
+                request.getProjectOrTaskName() +
+                " by " +
+                request.getSender();
+
         stringCommands.setex(key, sevenDaysTtl, message);
 
-        return keyCommands.exists(key);
+        if (!keyCommands.exists(key)) {
+            throw new GenericException(
+                    "Failed to create notification for receiver " +
+                            request.getReceiver()
+            );
+        }
     }
 
-    public boolean addTaskNotification(CreateNotificationRequest request, Object taskId) {
-        String key = "trello-clone|users|" + request.getReceiver() + "|notifications|task|" + taskId + "|" + request.getSender() + "|" + request.getIssuedAt();
-        String message = "You have been assigned to " + request.getProjectOrTaskName() + " by " + request.getSender();
+    public void addTaskNotification(CreateNotificationRequest request, Object taskId) {
+        String key = "trello-clone|users|" +
+                request.getReceiver() +
+                "|notifications|task|" +
+                taskId + "|" +
+                request.getSender() + "|" +
+                request.getIssuedAt();
+
+        String message = "You have been assigned to " +
+                request.getProjectOrTaskName() +
+                " by " +
+                request.getSender();
+
         stringCommands.setex(key, sevenDaysTtl, message);
 
-        return keyCommands.exists(key);
+        if (!keyCommands.exists(key)) {
+            throw new GenericException(
+                    "Failed to create notification for receiver " +
+                            request.getReceiver()
+            );
+        }
     }
 
     public void addDeadlineNotification(Task task) {
@@ -87,23 +125,33 @@ public class NotificationRepository {
         }
     }
 
-    public Notification deleteNotification(String receiver, String sender, String taskOrProject, String issuedAt, String taskOrProjectId) {
-        String receiverKey = "trello-clone|users|" + receiver + "|notifications|" + taskOrProject + "|" + taskOrProjectId + "|" + sender + "|" + issuedAt;
+    public Notification deleteNotification(
+            String receiver,
+            String sender,
+            String taskOrProject,
+            String issuedAt,
+            String taskOrProjectId
+    ) {
+        String receiverKey = "trello-clone|users|" +
+                receiver +
+                "|notifications|" +
+                taskOrProject + "|" +
+                taskOrProjectId + "|" +
+                sender + "|" +
+                issuedAt;
 
         boolean success = keyCommands.del(receiverKey) > 0;
 
-        if (success) {
+        if (!success) {
+            throw new GenericException("Failed to delete notification for receiver " + receiver);
+        }
 
-            return new Notification(
-                    sender,
-                    issuedAt,
-                    null,
-                    taskOrProject,
-                    taskOrProjectId
-            );
-        }
-        else {
-            return null;
-        }
+        return new Notification(
+                sender,
+                issuedAt,
+                null,
+                taskOrProject,
+                taskOrProjectId
+        );
     }
 }
