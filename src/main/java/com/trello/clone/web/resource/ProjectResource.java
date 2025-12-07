@@ -1,7 +1,6 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.ProjectService;
-import com.trello.clone.web.model.exception.ErrorResponse;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
@@ -31,19 +30,9 @@ public class ProjectResource  {
         String email = securityContext.getUserPrincipal().getName();
         List<ProjectResponse> projectResponseList = projectService.getAllProjectsByUserEmail(email);
 
-        if (!projectResponseList.isEmpty()) {
-            return Response.status(Response.Status.OK)
-                    .entity(projectResponseList)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(projectResponseList)
+                .build();
     }
 
     @GET
@@ -53,46 +42,24 @@ public class ProjectResource  {
     public Response getProjectById(@PathParam("projectId") String stringProjectId) {
         ObjectId projectId = new ObjectId(stringProjectId);
         ProjectResponse projectResponse = projectService.getProjectById(projectId);
-
-        if (projectResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(projectResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(projectResponse)
+                .build();
     }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response createProject(
-            @Context SecurityContext securityContext,
-            CreateProjectRequest createProjectRequest
-    ) {
+    public Response createProject(@Context SecurityContext securityContext,
+                                  CreateProjectRequest createProjectRequest) {
+
         String email = securityContext.getUserPrincipal().getName();
         ProjectResponse projectResponse = projectService.createProject(createProjectRequest, email);
 
-        if (projectResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(projectResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_CREATION",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.status(Response.Status.CREATED)
+                .entity(projectResponse)
+                .build();
     }
 
     @PUT
@@ -110,18 +77,9 @@ public class ProjectResource  {
 
         ProjectResponse projectResponse = projectService.updateProject(updateProjectRequest, projectId, email);
 
-        if (projectResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(projectResponse)
-                    .build();
-        } else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_UPDATE",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(projectResponse)
+                .build();
     }
 
     @DELETE
@@ -132,24 +90,12 @@ public class ProjectResource  {
             @PathParam("projectId") String stringProjectId,
             @Context SecurityContext securityContext
     ) {
+
         String email = securityContext.getUserPrincipal().getName();
         ObjectId projectId = new ObjectId(stringProjectId);
 
         ProjectResponse projectResponse = projectService.deleteProject(projectId, email);
-
-        if (projectResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(projectResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_Deletion",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok(projectResponse).build();
     }
 }
 

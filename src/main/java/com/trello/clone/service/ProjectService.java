@@ -2,6 +2,9 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
+import com.trello.clone.service.exception.GenericException;
+import com.trello.clone.service.exception.NotFoundException;
+import com.trello.clone.service.exception.UnauthorizedException;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
@@ -10,7 +13,6 @@ import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @ApplicationScoped
 public class ProjectService {
@@ -23,7 +25,13 @@ public class ProjectService {
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
         List<ProjectResponse> projectResponseList = new ArrayList<>();
 
-        List<Project> projects = projectRepository.findProjectsByEmail(email);
+        List<Project> projects;
+        try {
+            projects = projectRepository.findProjectsByEmail(email);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to gather projects due to server error");
+        }
 
         for (Project project : projects) {
             projectResponseList.add(toProjectResponse(project));
@@ -33,81 +41,105 @@ public class ProjectService {
     }
 
     public ProjectResponse getProjectById(ObjectId projectId) {
-        Project project = projectRepository.findById(projectId);
+        Project project;
+        try {
+            project = projectRepository.findById(projectId);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to retrieve project due to server error");
+        }
 
+        if (project == null) {
+            throw new NotFoundException("Project with ID " + projectId + " not found");
+        }
         return toProjectResponse(project);
     }
 
-    public ProjectResponse createProject(CreateProjectRequest createProjectRequest, String email) {
+    public ProjectResponse createProject(CreateProjectRequest request, String email) {
+
         List<String> team = new ArrayList<>();
         team.add(email);
 
         List<String> phases = new ArrayList<>();
-
         List<String> invitedUsers = new ArrayList<>();
 
         Project project = new Project(
-                createProjectRequest.getName(),
+                request.getName(),
                 phases,
                 email,
                 team,
                 invitedUsers
         );
 
-        projectRepository.persist(project);
+        try {
+            projectRepository.persist(project);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to create project due to server error: " + e.getMessage());
+        }
 
         return toProjectResponse(project);
     }
 
-
-    public ProjectResponse updateProject(UpdateProjectRequest updateProjectRequest, ObjectId projectId, String email) {
+    public ProjectResponse updateProject(UpdateProjectRequest request, ObjectId projectId, String email) {
         Project project = projectRepository.findById(projectId);
-
         if (project == null) {
-            return null;
+            throw new NotFoundException("Project with ID " + projectId + " not found");
         }
 
-        if (updateProjectRequest.getName() != null) {
-            project.setName(updateProjectRequest.getName());
-        }
+        try {
+            if (request.getName() != null) {
+                project.setName(request.getName());
+            }
 
-        if (updateProjectRequest.getPhases() != null) {
-            project.setPhases(updateProjectRequest.getPhases());
-        }
+            if (request.getPhases() != null) {
+                project.setPhases(request.getPhases());
+            }
 
-        if (Objects.equals(updateProjectRequest.getOwner(), email)) {
-            project.setOwner(updateProjectRequest.getOwner());
-        }
+            // Solo il proprietario può aggiornare se è presente
+            if (request.getOwner() != null && request.getOwner().equals(email)) {
+                project.setOwner(request.getOwner());
+            }
 
-        if (updateProjectRequest.getTeam() != null) {
-            project.setTeam(updateProjectRequest.getTeam());
-        }
+            if (request.getTeam() != null) {
+                project.setTeam(request.getTeam());
+            }
 
-        if (updateProjectRequest.getInvitedUsers() != null) {
-            project.setInvitedUsers(updateProjectRequest.getInvitedUsers());
-        }
+            if (request.getInvitedUsers() != null) {
+                project.setInvitedUsers(request.getInvitedUsers());
+            }
 
-        projectRepository.update(project);
+            projectRepository.update(project);
+
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to update project due to server error: " + e.getMessage());
+        }
 
         return toProjectResponse(project);
     }
+
 
     public ProjectResponse deleteProject(ObjectId projectId, String email) {
-        Project project = projectRepository.findById(projectId);
 
-        if (project != null) {
-            if (Objects.equals(project.getOwner(), email)) {
-                projectRepository.delete(project);
-                return toProjectResponse(project);
-            }
-            else {
-                return null;
-            }
+        Project project = projectRepository.findById(projectId);
+        if (project == null) {
+            throw new NotFoundException("Project with ID " + projectId + " not found");
         }
-        else  {
-            return null;
+
+        if (!project.getOwner().equals(email)) {
+            throw new UnauthorizedException("You are not allowed to delete this project");
         }
+
+        try {
+            projectRepository.delete(project);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to delete project due to server error: " + e.getMessage());
+        }
+        return toProjectResponse(project);
     }
+
 
     public ProjectResponse toProjectResponse (Project project){
 
