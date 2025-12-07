@@ -114,11 +114,21 @@ public class TaskService {
             }
 
             if (request.getTags() != null) {
-                task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
+                if (request.getTags().size() > task.getTags().size()) {
+                    task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
+                }
+                else {
+                    task.setTags(request.getTags());
+                }
             }
 
             if (request.getAssignees() != null) {
-                task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
+                if (request.getAssignees().size() > task.getAssignees().size()) {
+                    task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
+                }
+                else {
+                    task.setAssignees(request.getAssignees());
+                }
             }
 
             if (request.getEndDate() != null) {
