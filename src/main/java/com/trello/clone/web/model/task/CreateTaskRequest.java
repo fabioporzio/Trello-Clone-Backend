@@ -12,17 +12,17 @@ public class CreateTaskRequest {
     @NotBlank(message = "Task title is required")
     private String title;
 
-    @NotBlank(message = "Task description is required")
+    @NotEmpty(message = "Task description is required")
     @NotBlank(message = "Task description is required")
     private String description;
 
-    @NotBlank(message = "Task phase is required")
+    @NotEmpty(message = "Task phase is required")
     @NotBlank(message = "Task phase is required")
     private String phase;
 
+    @NotEmpty(message = "Task's project is required")
     @NotBlank(message = "Task's project is required")
-    @NotBlank(message = "Task's project is required")
-    private ObjectId projectId;
+    private String projectId;
 
     public String getTitle() {
         return title;
@@ -48,11 +48,11 @@ public class CreateTaskRequest {
         this.phase = phase;
     }
 
-    public ObjectId getProjectId() {
+    public String getProjectId() {
         return projectId;
     }
 
-    public void setProjectId(ObjectId projectId) {
+    public void setProjectId(String projectId) {
         this.projectId = projectId;
     }
 }

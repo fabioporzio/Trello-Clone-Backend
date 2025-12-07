@@ -67,8 +67,8 @@ public class TaskService {
         return groupedTasks;
     }
 
-
     public TaskResponse createTask(CreateTaskRequest request) {
+        ObjectId projectId = new ObjectId(request.getProjectId());
         Task task = new Task(
                 request.getTitle(),
                 request.getDescription(),
@@ -77,7 +77,7 @@ public class TaskService {
                 null,
                 null,
                 null,
-                request.getProjectId()
+                projectId
         );
 
         try {

@@ -18,8 +18,7 @@ public class CreateUserRequest {
     /*
     @Pattern(
             regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message = "Password must contain uppercase, lowercase, number, and special character"
-    )
+            message = "Password must contain uppercase, lowercase, number, and special character")
     */
     private String password;
 
