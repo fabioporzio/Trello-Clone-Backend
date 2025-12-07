@@ -36,22 +36,13 @@ public class AuthenticationResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(LoginRequest request) {
         UserResponse user = userService.authenticate(request.getEmail(), request.getPassword());
-        if (user == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .build();
-        }
 
         String accessToken = getAccessToken(user);
         String refreshToken = getRefreshToken(user);
 
-        if (accessToken != null && refreshToken != null) {
-            return Response.ok(new TokenResponse(accessToken, refreshToken)).build();
-        }
-        else {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .build();
-        }
+        return Response.ok(new TokenResponse(accessToken, refreshToken)).build();
     }
+
 
     @POST
     @Path("/refresh")
@@ -62,14 +53,9 @@ public class AuthenticationResource {
         String email = securityContext.getUserPrincipal().getName();
 
         UserResponse user = userService.getUserByEmail(email);
-        if (user == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .build();
-        }
-        else {
-            String accessToken = getAccessToken(user);
-            return Response.ok(new AccessTokenResponse(accessToken)).build();
-        }
+
+        String accessToken = getAccessToken(user);
+        return Response.ok(new AccessTokenResponse(accessToken)).build();
     }
 
     private String getAccessToken(UserResponse user) {

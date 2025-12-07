@@ -23,20 +23,21 @@ public class UserService {
         this.credentialRepository = credentialRepository;
     }
 
-    public UserResponse authenticate(String username, String password) {
-        Credential credential = credentialRepository.authenticate(username, password);
+    public UserResponse authenticate(String email, String password) {
+        Credential credential = credentialRepository.authenticate(email, password);
 
-        if (credential != null) {
-            User user = userRepository.findByEmail(credential.getEmail());
-            if (user != null) {
-                return toUserResponse(user);
-            }
-            else {
-                return null;
-            }
+        if (credential == null) {
+            throw new InvalidCredentialsException("Email or password are incorrect");
         }
-        return null;
+
+        User user = userRepository.findByEmail(credential.getEmail());
+        if (user == null) {
+            throw new NotFoundException("User not found");
+        }
+
+        return toUserResponse(user);
     }
+
 
     public UserResponse registerUser(CreateUserRequest createUserRequest) {
         boolean exists = userRepository.count("email", createUserRequest.getEmail()) > 0;
@@ -82,7 +83,7 @@ public class UserService {
 
         User user = userRepository.findByEmail(request.getCurrentEmail());
         if (user == null) {
-            throw new UserNotFoundException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         user.setEmail(request.getNewEmail());
@@ -109,7 +110,7 @@ public class UserService {
 
         User user = userRepository.findByEmail(request.getEmail());
         if (user == null) {
-            throw new UserNotFoundException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         if (user.getUsername().equals(request.getNewUsername())) {
@@ -141,7 +142,7 @@ public class UserService {
             return toUserResponse(user);
         }
         else {
-            throw new UserNotFoundException("No user found with email: " + email);
+            throw new NotFoundException("No user found with email: " + email);
         }
     }
 
