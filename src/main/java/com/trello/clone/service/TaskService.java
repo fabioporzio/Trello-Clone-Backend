@@ -3,6 +3,8 @@ package com.trello.clone.service;
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.DeadlineRepository;
 import com.trello.clone.data.repository.TaskRepository;
+import com.trello.clone.service.exception.GenericException;
+import com.trello.clone.service.exception.UnauthorizedException;
 import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
@@ -28,109 +30,128 @@ public class TaskService {
     }
 
     public TaskResponse getTaskById(ObjectId taskId) {
-        Task task = taskRepository.findById(taskId);
+        Task task;
+        try {
+            task = taskRepository.findById(taskId);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to retrieve task due to server error");
+        }
 
-        if (task != null) {
-            return toTaskResponse(task);
+        if (task == null) {
+            throw new NotFoundException("Task with ID " + taskId + " not found");
         }
-        else {
-            return null;
-        }
+        return toTaskResponse(task);
     }
 
     public List<TaskResponse> getAllTasksByProject(ObjectId projectId) {
-        List<Task> tasks = taskRepository.getTasksByProjectId(projectId);
-
-        if (!tasks.isEmpty()) {
-            List<TaskResponse> taskResponseList = new ArrayList<>();
-
-            for (Task task : tasks) {
-                taskResponseList.add(toTaskResponse(task));
-            }
-
-            return taskResponseList;
+        List<Task> tasks;
+        try {
+            tasks = taskRepository.getTasksByProjectId(projectId);
         }
-        else {
-            return null;
+        catch (Exception e) {
+            throw new GenericException("Failed to retrieve tasks due to server error");
         }
+
+        List<TaskResponse> taskResponseList = new ArrayList<>();
+
+        for (Task task : tasks) {
+            taskResponseList.add(toTaskResponse(task));
+        }
+
+        return taskResponseList;
     }
 
-    public TaskResponse createTask(CreateTaskRequest createTaskRequest) {
+    public TaskResponse createTask(CreateTaskRequest request) {
         Task task = new Task(
-                createTaskRequest.getTitle(),
-                createTaskRequest.getDescription(),
+                request.getTitle(),
+                request.getDescription(),
                 false,
-                createTaskRequest.getPhase(),
+                request.getPhase(),
                 null,
                 null,
                 null,
-                createTaskRequest.getProjectId()
+                request.getProjectId()
         );
 
-        taskRepository.persist(task);
+        try {
+            taskRepository.persist(task);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to create task due to server error: " + e.getMessage());
+        }
 
         return toTaskResponse(task);
     }
 
-    public TaskResponse updateTask(UpdateTaskRequest updateTaskRequest, ObjectId taskId) {
+    public TaskResponse updateTask(UpdateTaskRequest request, ObjectId taskId) {
         Task task = taskRepository.findById(taskId);
         if (task == null) {
             throw new NotFoundException("Task not found: " + taskId);
         }
 
-        if (updateTaskRequest.getTitle() != null) {
-            task.setTitle(updateTaskRequest.getTitle().trim());
-        }
-
-        if (updateTaskRequest.getDescription() != null) {
-            task.setDescription(updateTaskRequest.getDescription().trim());
-        }
-
-        if (updateTaskRequest.getPhase() != null) {
-            task.setPhase(updateTaskRequest.getPhase().trim());
-        }
-
-        if (updateTaskRequest.getCompleted() != null) {
-            task.setCompleted(updateTaskRequest.getCompleted());
-        }
-
-        if (updateTaskRequest.getTags() != null) {
-            task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), updateTaskRequest.getTags()));
-        }
-
-        if (updateTaskRequest.getAssignees() != null) {
-            task.setTags(mergeArraysUtils.mergeDistinct(task.getAssignees(), updateTaskRequest.getAssignees()));
-        }
-
-        if (updateTaskRequest.getEndDate() != null) {
-            task.setEndDate(updateTaskRequest.getEndDate());
-            boolean success = deadlineRepository.scheduleNotification(task.getId(), updateTaskRequest.getEndDate());
-
-            if (!success) {
-                throw new RuntimeException("Deadline not scheduled");
+        try {
+            if (request.getTitle() != null) {
+                task.setTitle(request.getTitle().trim());
             }
-        }
 
-        taskRepository.update(task);
+            if (request.getDescription() != null) {
+                task.setDescription(request.getDescription().trim());
+            }
+
+            if (request.getPhase() != null) {
+                task.setPhase(request.getPhase().trim());
+            }
+
+            if (request.getCompleted() != null) {
+                task.setCompleted(request.getCompleted());
+            }
+
+            if (request.getTags() != null) {
+                task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
+            }
+
+            if (request.getAssignees() != null) {
+                task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
+            }
+
+            if (request.getEndDate() != null) {
+                task.setEndDate(request.getEndDate());
+                boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
+                if (!success) {
+                    throw new GenericException("Deadline not scheduled due to server error");
+                }
+            }
+
+            taskRepository.update(task);
+
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to update task: " + e.getMessage());
+        }
 
         return toTaskResponse(task);
     }
 
+
     public TaskResponse deleteTask(ObjectId taskId, String email) {
         Task task = taskRepository.findById(taskId);
+        if (task == null) {
+            throw new NotFoundException("Task with ID " + taskId + " not found");
+        }
 
-        if (task != null) {
-            if (task.getAssignees().contains(email) || task.getAssignees().isEmpty()) {
-                taskRepository.delete(task);
-                return toTaskResponse(task);
-            }
-            else {
-                return null;
-            }
+        if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+            throw new UnauthorizedException("You are not allowed to delete this task");
         }
-        else  {
-            return null;
+
+        try {
+            taskRepository.delete(task);
         }
+        catch (Exception e) {
+            throw new GenericException("Failed to delete task due to server error");
+        }
+
+        return toTaskResponse(task);
     }
 
     TaskResponse toTaskResponse(Task task) {

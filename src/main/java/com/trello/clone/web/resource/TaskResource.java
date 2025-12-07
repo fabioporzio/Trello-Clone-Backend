@@ -1,7 +1,6 @@
 package com.trello.clone.web.resource;
 
 import com.trello.clone.service.TaskService;
-import com.trello.clone.web.model.exception.ErrorResponse;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;
@@ -31,25 +30,14 @@ public class TaskResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getTaskById(
-            @PathParam("taskId") String stringTaskId
-    ) {
+    public Response getTaskById(@PathParam("taskId") String stringTaskId) {
         ObjectId taskId = new ObjectId(stringTaskId);
+
         TaskResponse taskResponse = taskService.getTaskById(taskId);
 
-        if (taskResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(taskResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(taskResponse)
+                .build();
     }
 
     @GET
@@ -57,49 +45,24 @@ public class TaskResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getTasksByProjectId(
-            @PathParam("projectId") String stringProjectId
-    ) {
+    public Response getTasksByProjectId(@PathParam("projectId") String stringProjectId) {
         ObjectId projectId = new ObjectId(stringProjectId);
         List<TaskResponse> taskResponseList = taskService.getAllTasksByProject(projectId);
-
-        if (!taskResponseList.isEmpty()) {
-            return Response.status(Response.Status.OK)
-                    .entity(taskResponseList)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(taskResponseList)
+                .build();
     }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response createTask(
-            @Valid CreateTaskRequest createTaskRequest
-    ) {
+    public Response createTask(@Valid CreateTaskRequest createTaskRequest) {
         TaskResponse taskResponse = taskService.createTask(createTaskRequest);
 
-        if (taskResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(taskResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.status(Response.Status.CREATED)
+                .entity(taskResponse)
+                .build();
     }
 
     @PUT
@@ -113,20 +76,9 @@ public class TaskResource {
     ) {
         ObjectId taskId = new ObjectId(stringTaskId);
         TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId);
-
-        if (taskResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(taskResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_RETRIEVAL",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(taskResponse)
+                .build();
     }
 
     @DELETE
@@ -135,25 +87,15 @@ public class TaskResource {
     @RolesAllowed({"access_token"})
     public Response deleteTaskById(
             @PathParam("taskId") String stringTaskId,
-            @Context SecurityContext securityContext
+             @Context SecurityContext securityContext
     ) {
         String email = securityContext.getUserPrincipal().getName();
         ObjectId taskId = new ObjectId(stringTaskId);
 
         TaskResponse taskResponse = taskService.deleteTask(taskId, email);
-
-        if (taskResponse != null) {
-            return Response.status(Response.Status.OK)
-                    .entity(taskResponse)
-                    .build();
-        }
-        else {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse(
-                            "ERROR_DURING_PROJECT_Deletion",
-                            "An unexpected error occurred"
-                    ))
-                    .build();
-        }
+        return Response.ok()
+                .entity(taskResponse)
+                .build();
     }
+
 }
