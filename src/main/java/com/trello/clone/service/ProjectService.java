@@ -5,6 +5,7 @@ import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.service.exception.UnauthorizedException;
+import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
@@ -17,9 +18,11 @@ import java.util.List;
 @ApplicationScoped
 public class ProjectService {
     private final ProjectRepository projectRepository;
+    private final MergeArraysUtils mergeArraysUtils;
 
-    public ProjectService(ProjectRepository projectRepository) {
+    public ProjectService(ProjectRepository projectRepository, MergeArraysUtils mergeArraysUtils) {
         this.projectRepository = projectRepository;
+        this.mergeArraysUtils = mergeArraysUtils;
     }
 
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
@@ -93,20 +96,34 @@ public class ProjectService {
             }
 
             if (request.getPhases() != null) {
-                project.setPhases(request.getPhases());
+                if (request.getPhases().size() > project.getPhases().size()) {
+                    project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), request.getPhases()));
+                }
+                else {
+                    project.setPhases(request.getPhases());
+                }
             }
 
-            // Solo il proprietario può aggiornare se è presente
             if (request.getOwner() != null && request.getOwner().equals(email)) {
                 project.setOwner(request.getOwner());
             }
 
             if (request.getTeam() != null) {
-                project.setTeam(request.getTeam());
+                if (request.getTeam().size() > project.getTeam().size()) {
+                    project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
+                }
+                else {
+                    project.setTeam(request.getTeam());
+                }
             }
 
             if (request.getInvitedUsers() != null) {
-                project.setInvitedUsers(request.getInvitedUsers());
+                if (request.getInvitedUsers().size() > project.getInvitedUsers().size()) {
+                    project.setInvitedUsers(mergeArraysUtils.mergeDistinct(project.getInvitedUsers(), request.getInvitedUsers()));
+                }
+                else {
+                    project.setInvitedUsers(request.getInvitedUsers());
+                }
             }
 
             projectRepository.update(project);
