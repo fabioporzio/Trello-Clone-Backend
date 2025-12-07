@@ -1,12 +1,17 @@
 package com.trello.clone.data.repository;
 
 import com.trello.clone.data.model.Notification;
+import com.trello.clone.data.model.Task;
 import com.trello.clone.web.model.notification.CreateNotificationRequest;
+import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.keys.KeyCommands;
+import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.quarkus.redis.datasource.value.ValueCommands;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,13 +20,16 @@ public class NotificationRepository {
 
     private final KeyCommands<String> keyCommands;
     private final ValueCommands<String, String> stringCommands;
+    private final ReactiveValueCommands<String, String> reactiveStringCommands;
 
-    public NotificationRepository(RedisDataSource redisDataSource) {
+    public NotificationRepository(RedisDataSource redisDataSource, ReactiveRedisDataSource reactiveRedisDataSource) {
         keyCommands = redisDataSource.key();
         stringCommands = redisDataSource.value(String.class);
+        reactiveStringCommands = reactiveRedisDataSource.value(String.class);
     }
 
     long sevenDaysTtl = 7 * 24 * 60 * 60;
+    long twoDaysTtl = 2 * 24 * 60 * 60;
 
     public List<Notification> getNotifications(String email) {
         List<String> keys = keyCommands.keys("trello-clone|users|" + email + "|notifications|received|*");
@@ -58,6 +66,25 @@ public class NotificationRepository {
         stringCommands.setex(key, sevenDaysTtl, message);
 
         return keyCommands.exists(key);
+    }
+
+    public void addDeadlineNotification(Task task) {
+        String isoString = task.getEndDate(); // "2025-12-06T23:53:04.710+01:00"
+        ZonedDateTime dateTime = ZonedDateTime.parse(isoString);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+        String formattedDate = dateTime.format(formatter);
+
+        for (String assignee : task.getAssignees()) {
+            String key = "trello-clone|users|" + assignee + "|notifications|deadline|" + task.getId();
+            String message = "Task " + task.getTitle() + " is due on " + formattedDate;
+
+            reactiveStringCommands.setex(key, twoDaysTtl, message)
+                    .subscribe().with(
+                            unused -> {},
+                            Throwable::printStackTrace
+                    );
+        }
     }
 
     public Notification deleteNotification(String receiver, String sender, String taskOrProject, String issuedAt, String taskOrProjectId) {

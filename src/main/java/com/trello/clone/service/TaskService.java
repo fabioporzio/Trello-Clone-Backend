@@ -1,6 +1,7 @@
 package com.trello.clone.service;
 
 import com.trello.clone.data.model.Task;
+import com.trello.clone.data.repository.DeadlineRepository;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.utils.MergeArraysUtils;
 import com.trello.clone.web.model.task.CreateTaskRequest;
@@ -18,10 +19,12 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final MergeArraysUtils mergeArraysUtils;
+    private final DeadlineRepository deadlineRepository;
 
-    public TaskService(TaskRepository taskRepository,  MergeArraysUtils utils) {
+    public TaskService(TaskRepository taskRepository,  MergeArraysUtils utils,  DeadlineRepository deadlineRepository) {
         this.taskRepository = taskRepository;
         this.mergeArraysUtils = utils;
+        this.deadlineRepository = deadlineRepository;
     }
 
     public TaskResponse getTaskById(ObjectId taskId) {
@@ -101,6 +104,11 @@ public class TaskService {
 
         if (updateTaskRequest.getEndDate() != null) {
             task.setEndDate(updateTaskRequest.getEndDate());
+            boolean success = deadlineRepository.scheduleNotification(task.getId(), updateTaskRequest.getEndDate());
+
+            if (!success) {
+                throw new RuntimeException("Deadline not scheduled");
+            }
         }
 
         taskRepository.update(task);
