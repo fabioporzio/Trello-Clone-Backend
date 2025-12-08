@@ -69,13 +69,16 @@ public class TaskService {
 
     public TaskResponse createTask(CreateTaskRequest request) {
         ObjectId projectId = new ObjectId(request.getProjectId());
+        List<String> assignees = new ArrayList<>();
+        List<String> tags = new ArrayList<>();
+
         Task task = new Task(
                 request.getTitle(),
                 request.getDescription(),
                 false,
                 request.getPhase(),
-                null,
-                null,
+                tags,
+                assignees,
                 null,
                 projectId
         );
