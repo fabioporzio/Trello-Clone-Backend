@@ -14,6 +14,8 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.bson.types.ObjectId;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +33,9 @@ public class TaskResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getTaskById(@PathParam("taskId") String stringTaskId) {
+    public Response getTaskById(
+            @PathParam("taskId") String stringTaskId
+    ) {
         ObjectId taskId = new ObjectId(stringTaskId);
 
         TaskResponse taskResponse = taskService.getTaskById(taskId);
@@ -46,9 +50,30 @@ public class TaskResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getTasksByProjectId(@PathParam("projectId") String stringProjectId) {
+    public Response getTasksByProjectId(
+            @PathParam("projectId") String stringProjectId,
+            @QueryParam("tags") String tagsCsv,
+            @QueryParam("assignees") String assigneesCsv
+    ) {
         ObjectId projectId = new ObjectId(stringProjectId);
-        Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(projectId);
+
+        List<String> tags;
+        if (tagsCsv != null && !tagsCsv.isEmpty()) {
+            tags = Arrays.asList(tagsCsv.split(","));
+        }
+        else {
+            tags = Collections.emptyList();
+        }
+
+        List<String> assignees;
+        if (assigneesCsv != null && !assigneesCsv.isEmpty()) {
+            assignees = Arrays.asList(assigneesCsv.split(","));
+        }
+        else {
+            assignees = Collections.emptyList();
+        }
+
+        Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(projectId, tags, assignees);
         return Response.ok()
                 .entity(mappedTasks)
                 .build();

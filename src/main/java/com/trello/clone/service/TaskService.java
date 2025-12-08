@@ -46,26 +46,30 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
-    public Map<String, List<TaskResponse>> getAllTasksByProject(ObjectId projectId) {
+    public Map<String, List<TaskResponse>> getAllTasksByProject(
+            ObjectId projectId,
+            List<String> tags,
+            List<String> assignees
+    ) {
         List<Task> tasks;
+
         try {
-            tasks = taskRepository.getTasksByProjectId(projectId);
+            tasks = taskRepository.getTasksByProjectIdTagsAndAssignees(projectId, tags, assignees);
         } catch (Exception e) {
             throw new GenericException("Failed to retrieve tasks due to server error");
         }
 
         Map<String, List<TaskResponse>> groupedTasks = new HashMap<>();
-
         for (Task task : tasks) {
             TaskResponse taskResponse = toTaskResponse(task);
             String phase = task.getPhase();
-
             groupedTasks.putIfAbsent(phase, new ArrayList<>());
             groupedTasks.get(phase).add(taskResponse);
         }
 
         return groupedTasks;
     }
+
 
     public TaskResponse createTask(CreateTaskRequest request) {
         ObjectId projectId = new ObjectId(request.getProjectId());
@@ -99,74 +103,73 @@ public class TaskService {
             throw new NotFoundException("Task not found: " + taskId);
         }
 
+        if (request.getTitle() != null) {
+            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                throw new UnauthorizedException("You are not allowed to update this task");
+            }
+
+            task.setTitle(request.getTitle().trim());
+        }
+
+        if (request.getDescription() != null) {
+            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                throw new UnauthorizedException("You are not allowed to update this task");
+            }
+
+            task.setDescription(request.getDescription().trim());
+        }
+
+        if (request.getPhase() != null) {
+            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                throw new UnauthorizedException("You are not allowed to update this task");
+            }
+
+            task.setPhase(request.getPhase().trim());
+        }
+
+        if (request.getCompleted() != null) {
+            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                throw new UnauthorizedException("You are not allowed to update this task");
+            }
+
+            task.setCompleted(request.getCompleted());
+        }
+
+        if (request.getTags() != null) {
+            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                throw new UnauthorizedException("You are not allowed to update this task");
+            }
+
+            if (request.getTags().size() > task.getTags().size()) {
+                task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
+            }
+            else {
+                task.setTags(request.getTags());
+            }
+        }
+
+        if (request.getAssignees() != null) {
+            if (request.getAssignees().size() > task.getAssignees().size()) {
+                task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
+            }
+            else {
+                task.setAssignees(request.getAssignees());
+            }
+        }
+
+        if (request.getEndDate() != null) {
+            task.setEndDate(request.getEndDate());
+            boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
+            if (!success) {
+                throw new GenericException("Deadline not scheduled due to server error");
+            }
+        }
+
         try {
-            if (request.getTitle() != null) {
-                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                    throw new UnauthorizedException("You are not allowed to update this task");
-                }
-
-                task.setTitle(request.getTitle().trim());
-            }
-
-            if (request.getDescription() != null) {
-                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                    throw new UnauthorizedException("You are not allowed to update this task");
-                }
-
-                task.setDescription(request.getDescription().trim());
-            }
-
-            if (request.getPhase() != null) {
-                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                    throw new UnauthorizedException("You are not allowed to update this task");
-                }
-
-                task.setPhase(request.getPhase().trim());
-            }
-
-            if (request.getCompleted() != null) {
-                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                    throw new UnauthorizedException("You are not allowed to update this task");
-                }
-
-                task.setCompleted(request.getCompleted());
-            }
-
-            if (request.getTags() != null) {
-                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                    throw new UnauthorizedException("You are not allowed to update this task");
-                }
-
-                if (request.getTags().size() > task.getTags().size()) {
-                    task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
-                }
-                else {
-                    task.setTags(request.getTags());
-                }
-            }
-
-            if (request.getAssignees() != null) {
-                if (request.getAssignees().size() > task.getAssignees().size()) {
-                    task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
-                }
-                else {
-                    task.setAssignees(request.getAssignees());
-                }
-            }
-
-            if (request.getEndDate() != null) {
-                task.setEndDate(request.getEndDate());
-                boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
-                if (!success) {
-                    throw new GenericException("Deadline not scheduled due to server error");
-                }
-            }
-
             taskRepository.update(task);
-
         }
         catch (Exception e) {
-            throw new GenericException("Failed to update task: " + e.getMessage());
+            throw new GenericException("Failed to update task due to server error");
         }
 
         return toTaskResponse(task);
@@ -192,7 +195,7 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
-    TaskResponse toTaskResponse(Task task) {
+    private TaskResponse toTaskResponse(Task task) {
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
