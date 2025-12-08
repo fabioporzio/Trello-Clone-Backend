@@ -90,42 +90,44 @@ public class ProjectService {
             throw new NotFoundException("Project with ID " + projectId + " not found");
         }
 
+        if (request.getName() != null) {
+            project.setName(request.getName());
+        }
+
+        if (request.getPhases() != null) {
+            if (request.getPhases().size() > project.getPhases().size()) {
+                project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), request.getPhases()));
+            }
+            else {
+                project.setPhases(request.getPhases());
+            }
+        }
+
+        if (request.getOwner() != null && request.getOwner().equals(email)) {
+            project.setOwner(request.getOwner());
+        }
+
+        if (request.getTeam() != null) {
+            if (request.getTeam().size() > project.getTeam().size()) {
+                project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
+            }
+            else {
+                project.setTeam(request.getTeam());
+            }
+        }
+
+        if (request.getInvitedUsers() != null) {
+            if (request.getInvitedUsers().size() > project.getInvitedUsers().size()) {
+                project.setInvitedUsers(
+                        mergeArraysUtils.mergeDistinct(project.getInvitedUsers(), request.getInvitedUsers())
+                );
+            }
+            else {
+                project.setInvitedUsers(request.getInvitedUsers());
+            }
+        }
+
         try {
-            if (request.getName() != null) {
-                project.setName(request.getName());
-            }
-
-            if (request.getPhases() != null) {
-                if (request.getPhases().size() > project.getPhases().size()) {
-                    project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), request.getPhases()));
-                }
-                else {
-                    project.setPhases(request.getPhases());
-                }
-            }
-
-            if (request.getOwner() != null && request.getOwner().equals(email)) {
-                project.setOwner(request.getOwner());
-            }
-
-            if (request.getTeam() != null) {
-                if (request.getTeam().size() > project.getTeam().size()) {
-                    project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
-                }
-                else {
-                    project.setTeam(request.getTeam());
-                }
-            }
-
-            if (request.getInvitedUsers() != null) {
-                if (request.getInvitedUsers().size() > project.getInvitedUsers().size()) {
-                    project.setInvitedUsers(mergeArraysUtils.mergeDistinct(project.getInvitedUsers(), request.getInvitedUsers()));
-                }
-                else {
-                    project.setInvitedUsers(request.getInvitedUsers());
-                }
-            }
-
             projectRepository.update(project);
 
         }
@@ -135,7 +137,6 @@ public class ProjectService {
 
         return toProjectResponse(project);
     }
-
 
     public ProjectResponse deleteProject(ObjectId projectId, String email) {
 
@@ -152,14 +153,12 @@ public class ProjectService {
             projectRepository.delete(project);
         }
         catch (Exception e) {
-            throw new GenericException("Failed to delete project due to server error: " + e.getMessage());
+            throw new GenericException("Failed to delete project due to server error");
         }
         return toProjectResponse(project);
     }
 
-
-    public ProjectResponse toProjectResponse (Project project){
-
+    private ProjectResponse toProjectResponse (Project project){
         return new ProjectResponse(
                 project.getId(),
                 project.getName(),
