@@ -7,6 +7,7 @@ import jakarta.ws.rs.ext.Provider;
 
 @Provider
 public class InvalidCredentialsExceptionMapper implements ExceptionMapper<InvalidCredentialsException> {
+
     @Override
     public Response toResponse(InvalidCredentialsException ex) {
         return Response.status(Response.Status.UNAUTHORIZED)

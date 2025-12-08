@@ -7,6 +7,7 @@ import jakarta.ws.rs.ext.Provider;
 
 @Provider
 public class EmailAlreadyUsedExceptionMapper implements ExceptionMapper<EmailAlreadyUsedException> {
+
     @Override
     public Response toResponse(EmailAlreadyUsedException ex) {
         return Response.status(Response.Status.CONFLICT)
