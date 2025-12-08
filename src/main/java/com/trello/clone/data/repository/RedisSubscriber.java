@@ -31,7 +31,7 @@ public class RedisSubscriber {
     }
 
     private void handleMessage(String message) {
-        if (!message.startsWith("trello-clone|deadline|task")) {
+        if (!message.startsWith("trello-clone|deadlines|task")) {
             System.out.println("Ignoring message: " + message);
             return; // Ignora chiavi che non appartengono alla categoria "task"
         }
