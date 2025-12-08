@@ -93,7 +93,7 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
-    public TaskResponse updateTask(UpdateTaskRequest request, ObjectId taskId) {
+    public TaskResponse updateTask(UpdateTaskRequest request, ObjectId taskId, String email) {
         Task task = taskRepository.findById(taskId);
         if (task == null) {
             throw new NotFoundException("Task not found: " + taskId);
@@ -101,22 +101,42 @@ public class TaskService {
 
         try {
             if (request.getTitle() != null) {
+                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                    throw new UnauthorizedException("You are not allowed to update this task");
+                }
+
                 task.setTitle(request.getTitle().trim());
             }
 
             if (request.getDescription() != null) {
+                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                    throw new UnauthorizedException("You are not allowed to update this task");
+                }
+
                 task.setDescription(request.getDescription().trim());
             }
 
             if (request.getPhase() != null) {
+                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                    throw new UnauthorizedException("You are not allowed to update this task");
+                }
+
                 task.setPhase(request.getPhase().trim());
             }
 
             if (request.getCompleted() != null) {
+                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                    throw new UnauthorizedException("You are not allowed to update this task");
+                }
+
                 task.setCompleted(request.getCompleted());
             }
 
             if (request.getTags() != null) {
+                if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
+                    throw new UnauthorizedException("You are not allowed to update this task");
+                }
+
                 if (request.getTags().size() > task.getTags().size()) {
                     task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
                 }
@@ -151,7 +171,6 @@ public class TaskService {
 
         return toTaskResponse(task);
     }
-
 
     public TaskResponse deleteTask(ObjectId taskId, String email) {
         Task task = taskRepository.findById(taskId);

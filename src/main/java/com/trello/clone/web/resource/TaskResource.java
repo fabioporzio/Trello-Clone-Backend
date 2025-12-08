@@ -73,10 +73,12 @@ public class TaskResource {
     @RolesAllowed({"access_token"})
     public Response updateTask(
             @PathParam("taskId") String stringTaskId,
+            @Context SecurityContext securityContext,
             UpdateTaskRequest updateTaskRequest
     ) {
         ObjectId taskId = new ObjectId(stringTaskId);
-        TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId);
+        String email = securityContext.getUserPrincipal().getName();
+        TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId, email);
         return Response.ok()
                 .entity(taskResponse)
                 .build();
@@ -88,7 +90,7 @@ public class TaskResource {
     @RolesAllowed({"access_token"})
     public Response deleteTaskById(
             @PathParam("taskId") String stringTaskId,
-             @Context SecurityContext securityContext
+            @Context SecurityContext securityContext
     ) {
         String email = securityContext.getUserPrincipal().getName();
         ObjectId taskId = new ObjectId(stringTaskId);
