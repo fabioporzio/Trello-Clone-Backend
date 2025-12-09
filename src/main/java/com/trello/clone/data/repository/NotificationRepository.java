@@ -13,8 +13,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @ApplicationScoped
 public class NotificationRepository {
@@ -39,39 +38,61 @@ public class NotificationRepository {
         List<String> keys = keyCommands.keys(
                 "trello-clone|users|" +
                         email +
-                        "|notifications|received|*"
+                        "|notifications|*"
         );
 
         List<Notification> notifications = new ArrayList<>();
         for (String key : keys) {
             String[] splitKey = key.split("\\|");
             String content = stringCommands.get(key);
-            Notification receivedNotification = new Notification(
-                    splitKey[6],
-                    splitKey[7],
-                    content,
-                    splitKey[4],
-                    splitKey[5]
-            );
 
-            notifications.add(receivedNotification);
+            Notification notification = getNotification(splitKey, content);
+
+            notifications.add(notification);
         }
 
         return notifications;
     }
 
-    public void addProjectNotification(CreateNotificationRequest request, Object projectId) {
+    private Notification getNotification(String[] splitKey, String content) {
+        Notification notification;
+        if (Objects.equals(splitKey[4], "deadline")) {
+            notification = new Notification(
+                    splitKey[2],
+                    splitKey[4],
+                    splitKey[5],
+                    null,
+                    null,
+                    content
+            );
+
+        }
+        else {
+            notification = new Notification(
+                    splitKey[2],
+                    splitKey[4],
+                    splitKey[5],
+                    splitKey[6],
+                    splitKey[7],
+                    content
+            );
+
+        }
+        return notification;
+    }
+
+    public void addProjectNotification(CreateNotificationRequest request, Object projectId, String senderEmail) {
         String key = "trello-clone|users|" +
                 request.getReceiver() +
                 "|notifications|project|" +
                 projectId + "|" +
-                request.getSender() + "|" +
+                senderEmail + "|" +
                 request.getIssuedAt();
 
         String message = "You have been invited to project " +
                 request.getProjectOrTaskName() +
                 " by " +
-                request.getSender();
+                senderEmail;
 
         stringCommands.setex(key, sevenDaysTtl, message);
 
@@ -83,18 +104,18 @@ public class NotificationRepository {
         }
     }
 
-    public void addTaskNotification(CreateNotificationRequest request, Object taskId) {
+    public void addTaskNotification(CreateNotificationRequest request, Object taskId, String senderEmail) {
         String key = "trello-clone|users|" +
                 request.getReceiver() +
                 "|notifications|task|" +
                 taskId + "|" +
-                request.getSender() + "|" +
+                senderEmail + "|" +
                 request.getIssuedAt();
 
         String message = "You have been assigned to " +
                 request.getProjectOrTaskName() +
                 " by " +
-                request.getSender();
+                senderEmail;
 
         stringCommands.setex(key, sevenDaysTtl, message);
 
@@ -127,10 +148,11 @@ public class NotificationRepository {
 
     public Notification deleteNotification(
             String receiver,
-            String sender,
             String taskOrProject,
-            String issuedAt,
-            String taskOrProjectId
+            String taskOrProjectId,
+            String sender,
+            String issuedAt
+
     ) {
         String receiverKey = "trello-clone|users|" +
                 receiver +
@@ -147,11 +169,12 @@ public class NotificationRepository {
         }
 
         return new Notification(
+                receiver,
+                taskOrProject,
+                taskOrProjectId,
                 sender,
                 issuedAt,
-                null,
-                taskOrProject,
-                taskOrProjectId
+                null
         );
     }
 }

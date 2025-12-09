@@ -51,9 +51,10 @@ public class ProjectResource  {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response createProject(@Context SecurityContext securityContext,
-                                  CreateProjectRequest createProjectRequest) {
-
+    public Response createProject(
+            @Context SecurityContext securityContext,
+            CreateProjectRequest createProjectRequest
+    ) {
         String email = securityContext.getUserPrincipal().getName();
         ProjectResponse projectResponse = projectService.createProject(createProjectRequest, email);
 

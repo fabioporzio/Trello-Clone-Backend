@@ -55,7 +55,8 @@ public class TaskService {
 
         try {
             tasks = taskRepository.getTasksByProjectIdTagsAndAssignees(projectId, tags, assignees);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new GenericException("Failed to retrieve tasks due to server error");
         }
 

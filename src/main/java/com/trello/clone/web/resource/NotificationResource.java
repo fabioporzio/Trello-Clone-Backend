@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import org.bson.types.ObjectId;
 
 import java.util.List;
+import java.util.Map;
 
 @Path("/api/notification")
 public class NotificationResource {
@@ -26,10 +27,14 @@ public class NotificationResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getReceivedNotifications(@Context SecurityContext securityContext) {
+    public Response getReceivedNotifications(
+            @Context SecurityContext securityContext
+    ) {
         String email = securityContext.getUserPrincipal().getName();
-        List<NotificationResponse> notificationResponses = notificationService.getReceivedNotifications(email);
-        return Response.ok(notificationResponses).build();
+        Map<String, List<NotificationResponse>> mappedNotificationsResponses = notificationService.getReceivedNotifications(email);
+        return Response.ok()
+                .entity(mappedNotificationsResponses)
+                .build();
     }
 
     @POST
@@ -39,10 +44,12 @@ public class NotificationResource {
     @RolesAllowed({"access_token"})
     public Response createProjectNotification(
             @Valid CreateNotificationRequest createNotificationRequest,
-            @PathParam("projectId") String stringProjectId
+            @PathParam("projectId") String stringProjectId,
+            @Context SecurityContext securityContext
     ) {
         ObjectId projectId = new ObjectId(stringProjectId);
-        notificationService.addProjectNotification(createNotificationRequest, projectId);
+        String senderEmail = securityContext.getUserPrincipal().getName();
+        notificationService.addProjectNotification(createNotificationRequest, projectId, senderEmail);
 
         return Response.status(Response.Status.CREATED)
                 .entity("Notifications processed correctly")
@@ -56,10 +63,12 @@ public class NotificationResource {
     @RolesAllowed({"access_token"})
     public Response createTaskNotification(
             @Valid CreateNotificationRequest createNotificationRequest,
-            @PathParam("taskId") String stringTaskId
+            @PathParam("taskId") String stringTaskId,
+            @Context SecurityContext securityContext
     ) {
         ObjectId taskId = new ObjectId(stringTaskId);
-        notificationService.addTaskNotification(createNotificationRequest, taskId);
+        String senderEmail = securityContext.getUserPrincipal().getName();
+        notificationService.addTaskNotification(createNotificationRequest, taskId, senderEmail);
 
         return Response.status(Response.Status.CREATED)
                 .entity("Notifications processed correctly")
@@ -67,23 +76,24 @@ public class NotificationResource {
     }
 
     @DELETE
-    @Path("/{receiver}/{sender}/{taskOrProject}/{issuedAt}/{taskOrProjectId}")
+    @Path("/{sender}/{taskOrProject}/{taskOrProjectId}/{issuedAt}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response deleteNotification(
-            @PathParam("receiver") String receiver,
             @PathParam("sender") String sender,
             @PathParam("taskOrProject") String taskOrProject,
+            @PathParam("taskOrProjectId") String taskOrProjectId,
             @PathParam("issuedAt") String issuedAt,
-            @PathParam("taskOrProjectId") String taskOrProjectId
+            @Context SecurityContext securityContext
     ) {
+        String receiverEmail = securityContext.getUserPrincipal().getName();
         NotificationResponse notificationResponse = notificationService.deleteNotification(
-                receiver,
-                sender,
+                receiverEmail,
                 taskOrProject,
-                issuedAt,
-                taskOrProjectId
+                taskOrProjectId,
+                sender,
+                issuedAt
         );
 
         return Response.ok()

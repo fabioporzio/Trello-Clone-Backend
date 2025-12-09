@@ -7,7 +7,9 @@ import com.trello.clone.web.model.notification.NotificationResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @ApplicationScoped
 public class NotificationService {
@@ -18,39 +20,65 @@ public class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
-    public List<NotificationResponse> getReceivedNotifications(String email) {
-        List<Notification> receivedNotifications = notificationRepository.getNotifications(email);
+    public Map<String, List<NotificationResponse>> getReceivedNotifications(String email) {
+        List<Notification> notifications = notificationRepository.getNotifications(email);
 
-        List<NotificationResponse> receivedNotificationResponses = new ArrayList<>();
-        for (Notification receivedNotification : receivedNotifications) {
-            receivedNotificationResponses.add(toReceivedNotificationResponse(receivedNotification));
+        Map<String, List<NotificationResponse>> mappedNotificationsResponses = new HashMap<>();
+        for (Notification notification : notifications) {
+            NotificationResponse notificationResponse = toNotificationResponse(notification);
+
+            String category = notificationResponse.getCategory();
+            mappedNotificationsResponses.putIfAbsent(category, new ArrayList<>());
+            mappedNotificationsResponses.get(category).add(notificationResponse);
         }
 
-        return receivedNotificationResponses;
+        return mappedNotificationsResponses;
     }
 
-    public void addProjectNotification(CreateNotificationRequest createNotificationRequest, Object projectId) {
-        this.notificationRepository.addProjectNotification(createNotificationRequest, projectId);
+    public void addProjectNotification(
+            CreateNotificationRequest createNotificationRequest,
+            Object projectId,
+            String senderEmail
+    ) {
+        this.notificationRepository.addProjectNotification(createNotificationRequest, projectId, senderEmail);
     }
 
-    public void addTaskNotification(CreateNotificationRequest createNotificationRequest, Object taskId) {
-        this.notificationRepository.addTaskNotification(createNotificationRequest, taskId);
+    public void addTaskNotification(
+            CreateNotificationRequest createNotificationRequest,
+            Object taskId,
+            String senderEmail
+    ) {
+        this.notificationRepository.addTaskNotification(createNotificationRequest, taskId, senderEmail);
     }
 
-    public NotificationResponse deleteNotification(String receiver, String sender, String taskOrProject, String issuedAt, String taskOrProjectId) {
-        Notification receivedNotification = this.notificationRepository.deleteNotification(receiver, sender, taskOrProject, issuedAt, taskOrProjectId);
+    public NotificationResponse deleteNotification(
+            String receiver,
+            String taskOrProject,
+            String taskOrProjectId,
+            String sender,
+            String issuedAt
 
-        return toReceivedNotificationResponse(receivedNotification);
+    ) {
+        Notification notification = this.notificationRepository.deleteNotification(
+                receiver,
+                taskOrProject,
+                taskOrProjectId,
+                sender,
+                issuedAt
+        );
+
+        return toNotificationResponse(notification);
     }
 
-    private NotificationResponse toReceivedNotificationResponse(Notification receivedNotification) {
+    private NotificationResponse toNotificationResponse(Notification notification) {
 
         return new NotificationResponse(
-                receivedNotification.getSender(),
-                receivedNotification.getIssuedAt(),
-                receivedNotification.getContent(),
-                receivedNotification.getCategory(),
-                receivedNotification.getTaskOrProjectId()
+                notification.getReceiver(),
+                notification.getCategory(),
+                notification.getTaskOrProjectId(),
+                notification.getSender(),
+                notification.getIssuedAt(),
+                notification.getContent()
         );
     }
 }

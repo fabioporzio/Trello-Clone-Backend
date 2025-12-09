@@ -2,18 +2,44 @@ package com.trello.clone.web.model.notification;
 
 public class NotificationResponse {
 
+    private String receiver;
+    private String category;
+    private String taskOrProjectId;
     private String sender;
     private String issuedAt;
     private String content;
-    private String category;
-    private String projectId;
 
-    public NotificationResponse(String sender, String issuedAt, String content, String category, String projectId) {
+    public NotificationResponse(String receiver, String category, String taskOrProjectId, String sender, String issuedAt, String content) {
+        this.receiver = receiver;
+        this.category = category;
+        this.taskOrProjectId = taskOrProjectId;
         this.sender = sender;
         this.issuedAt = issuedAt;
         this.content = content;
+    }
+
+    public String getReceiver() {
+        return receiver;
+    }
+
+    public void setReceiver(String receiver) {
+        this.receiver = receiver;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
         this.category = category;
-        this.projectId = projectId;
+    }
+
+    public String getTaskOrProjectId() {
+        return taskOrProjectId;
+    }
+
+    public void setTaskOrProjectId(String taskOrProjectId) {
+        this.taskOrProjectId = taskOrProjectId;
     }
 
     public String getSender() {
@@ -38,21 +64,5 @@ public class NotificationResponse {
 
     public void setContent(String content) {
         this.content = content;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    public String getProjectId() {
-        return projectId;
-    }
-
-    public void setProjectId(String projectId) {
-        this.projectId = projectId;
     }
 }
