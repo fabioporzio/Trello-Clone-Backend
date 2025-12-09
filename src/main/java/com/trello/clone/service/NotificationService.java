@@ -1,56 +1,107 @@
 package com.trello.clone.service;
 
 import com.trello.clone.data.model.Notification;
+import com.trello.clone.data.model.Project;
+import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.NotificationRepository;
+import com.trello.clone.data.repository.ProjectRepository;
+import com.trello.clone.data.repository.TaskRepository;
+import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.web.model.notification.CreateNotificationRequest;
 import com.trello.clone.web.model.notification.NotificationResponse;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @ApplicationScoped
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final TaskRepository taskRepository;
+    private final ProjectRepository projectRepository;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            TaskRepository taskRepository,
+            ProjectRepository projectRepository
+    ) {
         this.notificationRepository = notificationRepository;
+        this.taskRepository = taskRepository;
+        this.projectRepository = projectRepository;
     }
 
-    public List<NotificationResponse> getReceivedNotifications(String email) {
-        List<Notification> receivedNotifications = notificationRepository.getNotifications(email);
+    public Map<String, List<NotificationResponse>> getReceivedNotifications(String email) {
+        List<Notification> notifications = notificationRepository.getNotifications(email);
 
-        List<NotificationResponse> receivedNotificationResponses = new ArrayList<>();
-        for (Notification receivedNotification : receivedNotifications) {
-            receivedNotificationResponses.add(toReceivedNotificationResponse(receivedNotification));
+        Map<String, List<NotificationResponse>> mappedNotificationsResponses = new HashMap<>();
+        for (Notification notification : notifications) {
+            NotificationResponse notificationResponse = toNotificationResponse(notification);
+
+            String category = notificationResponse.getCategory();
+            mappedNotificationsResponses.putIfAbsent(category, new ArrayList<>());
+            mappedNotificationsResponses.get(category).add(notificationResponse);
         }
 
-        return receivedNotificationResponses;
+        return mappedNotificationsResponses;
     }
 
-    public void addProjectNotification(CreateNotificationRequest createNotificationRequest, Object projectId) {
-        this.notificationRepository.addProjectNotification(createNotificationRequest, projectId);
+    public void addProjectNotification(
+            CreateNotificationRequest createNotificationRequest,
+            ObjectId projectId,
+            String senderEmail
+    ) {
+        Project project = projectRepository.findById(projectId);
+        if (project == null) {
+            throw new NotFoundException("Project with ID " + projectId + " not found");
+        }
+
+        this.notificationRepository.addProjectNotification(createNotificationRequest, projectId, senderEmail);
     }
 
-    public void addTaskNotification(CreateNotificationRequest createNotificationRequest, Object taskId) {
-        this.notificationRepository.addTaskNotification(createNotificationRequest, taskId);
+    public void addTaskNotification(
+            CreateNotificationRequest createNotificationRequest,
+            ObjectId taskId,
+            String senderEmail
+    ) {
+        Task task = taskRepository.findById(taskId);
+        if (task == null) {
+            throw new NotFoundException("Task with ID " + taskId + " not found");
+        }
+        this.notificationRepository.addTaskNotification(createNotificationRequest, taskId, senderEmail);
     }
 
-    public NotificationResponse deleteNotification(String receiver, String sender, String taskOrProject, String issuedAt, String taskOrProjectId) {
-        Notification receivedNotification = this.notificationRepository.deleteNotification(receiver, sender, taskOrProject, issuedAt, taskOrProjectId);
+    public NotificationResponse deleteNotification(
+            String receiver,
+            String taskOrProject,
+            String taskOrProjectId,
+            String sender,
+            String issuedAt
 
-        return toReceivedNotificationResponse(receivedNotification);
+    ) {
+        Notification notification = this.notificationRepository.deleteNotification(
+                receiver,
+                taskOrProject,
+                taskOrProjectId,
+                sender,
+                issuedAt
+        );
+
+        return toNotificationResponse(notification);
     }
 
-    private NotificationResponse toReceivedNotificationResponse(Notification receivedNotification) {
+    private NotificationResponse toNotificationResponse(Notification notification) {
 
         return new NotificationResponse(
-                receivedNotification.getSender(),
-                receivedNotification.getIssuedAt(),
-                receivedNotification.getContent(),
-                receivedNotification.getCategory(),
-                receivedNotification.getTaskOrProjectId()
+                notification.getReceiver(),
+                notification.getCategory(),
+                notification.getTaskOrProjectId(),
+                notification.getSender(),
+                notification.getIssuedAt(),
+                notification.getContent()
         );
     }
 }

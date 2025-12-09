@@ -5,10 +5,6 @@ import jakarta.validation.constraints.NotNull;
 
 public class CreateNotificationRequest {
 
-    @NotEmpty(message = "Sender is required")
-    @NotNull(message = "Sender is required")
-    private String sender;
-
     @NotEmpty(message = "Receiver is required")
     @NotNull(message = "Receiver is required")
     private String receiver;
@@ -20,14 +16,6 @@ public class CreateNotificationRequest {
     @NotEmpty(message = "Project or Task name is required")
     @NotNull(message = "Project or Task name is required")
     private String projectOrTaskName;
-
-    public String getSender() {
-        return sender;
-    }
-
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
 
     public String getReceiver() {
         return receiver;
