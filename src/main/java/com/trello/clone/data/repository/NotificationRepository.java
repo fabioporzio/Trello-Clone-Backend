@@ -1,6 +1,7 @@
 package com.trello.clone.data.repository;
 
 import com.trello.clone.data.model.Notification;
+import com.trello.clone.data.model.Project;
 import com.trello.clone.data.model.Task;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.web.model.notification.CreateNotificationRequest;
@@ -10,6 +11,7 @@ import io.quarkus.redis.datasource.keys.KeyCommands;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.quarkus.redis.datasource.value.ValueCommands;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.types.ObjectId;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,14 +23,17 @@ public class NotificationRepository {
     private final KeyCommands<String> keyCommands;
     private final ValueCommands<String, String> stringCommands;
     private final ReactiveValueCommands<String, String> reactiveStringCommands;
+    private final ProjectRepository projectRepository;
 
     public NotificationRepository(
             RedisDataSource redisDataSource,
-            ReactiveRedisDataSource reactiveRedisDataSource
+            ReactiveRedisDataSource reactiveRedisDataSource,
+            ProjectRepository projectRepository
     ) {
         keyCommands = redisDataSource.key();
         stringCommands = redisDataSource.value(String.class);
         reactiveStringCommands = reactiveRedisDataSource.value(String.class);
+        this.projectRepository = projectRepository;
     }
 
     long sevenDaysTtl = 7 * 24 * 60 * 60;
@@ -81,7 +86,7 @@ public class NotificationRepository {
         return notification;
     }
 
-    public void addProjectNotification(CreateNotificationRequest request, Object projectId, String senderEmail) {
+    public void addProjectNotification(CreateNotificationRequest request, ObjectId projectId, String senderEmail) {
         String key = "trello-clone|users|" +
                 request.getReceiver() +
                 "|notifications|project|" +
@@ -104,7 +109,7 @@ public class NotificationRepository {
         }
     }
 
-    public void addTaskNotification(CreateNotificationRequest request, Object taskId, String senderEmail) {
+    public void addTaskNotification(CreateNotificationRequest request, ObjectId taskId, String senderEmail) {
         String key = "trello-clone|users|" +
                 request.getReceiver() +
                 "|notifications|task|" +
@@ -134,15 +139,30 @@ public class NotificationRepository {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
         String formattedDate = dateTime.format(formatter);
 
-        for (String assignee : task.getAssignees()) {
-            String key = "trello-clone|users|" + assignee + "|notifications|deadline|" + task.getId();
-            String message = "Task " + task.getTitle() + " is due on " + formattedDate;
+        if (!task.getAssignees().isEmpty()) {
+            for (String assignee : task.getAssignees()) {
+                String key = "trello-clone|users|" + assignee + "|notifications|deadline|" + task.getId();
+                String message = "Task " + task.getTitle() + " is due on " + formattedDate;
 
-            reactiveStringCommands.setex(key, twoDaysTtl, message)
-                    .subscribe().with(
-                            unused -> {},
-                            Throwable::printStackTrace
-                    );
+                reactiveStringCommands.setex(key, twoDaysTtl, message)
+                        .subscribe().with(
+                                unused -> {},
+                                Throwable::printStackTrace
+                        );
+            }
+        }
+        else {
+            Project project = projectRepository.findById(task.getProjectId());
+            for (String teamMember : project.getTeam()) {
+                String key = "trello-clone|users|" + teamMember + "|notifications|deadline|" + task.getId();
+                String message = "Task " + task.getTitle() + " is due on " + formattedDate;
+
+                reactiveStringCommands.setex(key, twoDaysTtl, message)
+                        .subscribe().with(
+                                unused -> {},
+                                Throwable::printStackTrace
+                        );
+            }
         }
     }
 
