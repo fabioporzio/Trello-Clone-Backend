@@ -28,7 +28,7 @@ public class DeadlineRepository {
         System.out.println("TTL: " + ttl);
 
         String key = "trello-clone|deadlines|task|" + taskId;
-        stringCommands.setex(key, 30, "placeholder");
+        stringCommands.setex(key, ttl, "placeholder");
 
         return keyCommands.exists(key);
     }
