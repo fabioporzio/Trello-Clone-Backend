@@ -108,11 +108,16 @@ public class ProjectService {
         }
 
         if (request.getTeam() != null) {
-            if (request.getTeam().size() > project.getTeam().size()) {
-                project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
+            if (request.getTeam().contains(project.getOwner())) {
+                if (request.getTeam().size() > project.getTeam().size()) {
+                    project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
+                }
+                else {
+                    project.setTeam(request.getTeam());
+                }
             }
             else {
-                project.setTeam(request.getTeam());
+                throw new UnauthorizedException("You are not allowed to leave this project this project");
             }
         }
 
