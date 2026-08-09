@@ -21,7 +21,10 @@ import java.util.Map;
 
 @DenyAll
 @Path("/api/task")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class TaskResource {
+
     private final TaskService taskService;
 
     public TaskResource(TaskService taskService) {
@@ -30,8 +33,6 @@ public class TaskResource {
 
     @GET
     @Path("/{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getTaskById(
             @PathParam("taskId") String stringTaskId
@@ -47,8 +48,6 @@ public class TaskResource {
 
     @GET
     @Path("/project/{projectId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getTasksByProjectId(
             @PathParam("projectId") String stringProjectId,
@@ -80,8 +79,6 @@ public class TaskResource {
     }
 
     @POST
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response createTask(@Valid CreateTaskRequest createTaskRequest) {
         TaskResponse taskResponse = taskService.createTask(createTaskRequest);
@@ -93,8 +90,6 @@ public class TaskResource {
 
     @PUT
     @Path("/{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateTask(
             @PathParam("taskId") String stringTaskId,
@@ -111,7 +106,6 @@ public class TaskResource {
 
     @DELETE
     @Path("/{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response deleteTaskById(
             @PathParam("taskId") String stringTaskId,

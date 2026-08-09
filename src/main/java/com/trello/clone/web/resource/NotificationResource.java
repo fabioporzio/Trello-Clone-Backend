@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 @Path("/api/notification")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class NotificationResource {
 
     private final NotificationService notificationService;
@@ -25,7 +27,6 @@ public class NotificationResource {
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getReceivedNotifications(
             @Context SecurityContext securityContext
@@ -39,8 +40,6 @@ public class NotificationResource {
 
     @POST
     @Path("/project/{projectId}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response createProjectNotification(
             @Valid CreateNotificationRequest createNotificationRequest,
@@ -58,8 +57,6 @@ public class NotificationResource {
 
     @POST
     @Path("/task/{taskId}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response createTaskNotification(
             @Valid CreateNotificationRequest createNotificationRequest,
@@ -77,8 +74,6 @@ public class NotificationResource {
 
     @DELETE
     @Path("/{sender}/{taskOrProject}/{taskOrProjectId}/{issuedAt}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response deleteNotification(
             @PathParam("sender") String sender,

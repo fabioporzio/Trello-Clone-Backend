@@ -15,6 +15,8 @@ import org.bson.types.ObjectId;
 import java.util.List;
 
 @Path("api/project")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class ProjectResource  {
 
     private final ProjectService projectService;
@@ -24,7 +26,6 @@ public class ProjectResource  {
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getAllProjectsByEmail(@Context SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
@@ -37,7 +38,6 @@ public class ProjectResource  {
 
     @GET
     @Path("/{projectId}")
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getProjectById(@PathParam("projectId") String stringProjectId) {
         ObjectId projectId = new ObjectId(stringProjectId);
@@ -48,8 +48,6 @@ public class ProjectResource  {
     }
 
     @POST
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response createProject(
             @Context SecurityContext securityContext,
@@ -65,8 +63,6 @@ public class ProjectResource  {
 
     @PUT
     @Path("/{projectId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateProject(
             @PathParam("projectId") String stringProjectId,
@@ -85,7 +81,6 @@ public class ProjectResource  {
 
     @DELETE
     @Path("/{projectId}")
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response deleteProjectById(
             @PathParam("projectId") String stringProjectId,

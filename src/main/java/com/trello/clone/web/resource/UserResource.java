@@ -27,9 +27,8 @@ public class UserResource {
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
-    public Response getUser(@Context SecurityContext securityContext) {
+    public Response getUserFromAccessToken(@Context SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
 
         UserResponse userResponse = userService.getUserByEmail(email);
@@ -41,7 +40,6 @@ public class UserResource {
 
     @GET
     @Path("/all")
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response getAllUsers() {
         List<UserResponse> userResponseList = userService.getAllUsers();
@@ -51,8 +49,6 @@ public class UserResource {
 
     @POST
     @Path("/register")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     public Response registerUser(@Valid CreateUserRequest createUserRequest) {
         UserResponse userResponse = userService.registerUser(createUserRequest);
@@ -63,8 +59,6 @@ public class UserResource {
 
     @PUT
     @Path("/update-email")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserEmail(@Valid UpdateUserEmailRequest updateUserEmailRequest) {
         UserResponse userResponse = userService.updateUserEmail(updateUserEmailRequest);
@@ -75,8 +69,6 @@ public class UserResource {
 
     @PUT
     @Path("/update-username")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserUsername(@Valid UpdateUserUsernameRequest request) {
         UserResponse userResponse = userService.updateUserUsername(request);
@@ -88,8 +80,6 @@ public class UserResource {
 
     @PUT
     @Path("/update-password")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({"access_token"})
     public Response updateUserPassword(@Valid UpdateUserPasswordRequest request) {
         UserResponse userResponse = userService.updateUserPassword(request);
