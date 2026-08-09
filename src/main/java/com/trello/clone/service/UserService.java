@@ -1,8 +1,7 @@
 package com.trello.clone.service;
 
-import com.trello.clone.data.model.Credential;
 import com.trello.clone.data.model.User;
-import com.trello.clone.data.repository.CredentialRepository;
+import com.trello.clone.data.repository.AuthenticationRepository;
 import com.trello.clone.data.repository.UserRepository;
 import com.trello.clone.service.exception.*;
 import com.trello.clone.web.model.user.*;
@@ -15,27 +14,16 @@ import java.util.List;
 
 @ApplicationScoped
 public class UserService {
+
     private final UserRepository userRepository;
-    private final CredentialRepository credentialRepository;
+    private final AuthenticationRepository authenticationRepository;
 
-    public UserService(UserRepository userRepository,  CredentialRepository credentialRepository) {
+    public UserService(
+            UserRepository userRepository,
+            AuthenticationRepository authenticationRepository
+    ) {
         this.userRepository = userRepository;
-        this.credentialRepository = credentialRepository;
-    }
-
-    public UserResponse authenticate(String email, String password) {
-        Credential credential = credentialRepository.authenticate(email, password);
-
-        if (credential == null) {
-            throw new InvalidCredentialsException("Email or password are incorrect");
-        }
-
-        User user = userRepository.findByEmail(credential.getEmail());
-        if (user == null) {
-            throw new NotFoundException("User not found");
-        }
-
-        return toUserResponse(user);
+        this.authenticationRepository = authenticationRepository;
     }
 
     public UserResponse registerUser(CreateUserRequest createUserRequest) {
@@ -47,11 +35,8 @@ public class UserService {
         try {
             String hashedPassword = BcryptUtil.bcryptHash(createUserRequest.getPassword());
 
-            User user = new User(createUserRequest.getEmail(), createUserRequest.getUsername());
-            Credential userCredentials = new Credential(createUserRequest.getEmail(), hashedPassword);
-
+            User user = new User(createUserRequest.getEmail(), createUserRequest.getUsername(), hashedPassword);
             userRepository.persist(user);
-            credentialRepository.persist(userCredentials);
 
             return toUserResponse(user);
         }
@@ -62,16 +47,16 @@ public class UserService {
 
     public UserResponse updateUserEmail(UpdateUserEmailRequest request) {
 
-        Credential userCredentials = credentialRepository.authenticate(
+        User user = authenticationRepository.authenticate(
                 request.getCurrentEmail(),
                 request.getPassword()
         );
 
-        if (userCredentials == null) {
+        if (user == null) {
             throw new InvalidCredentialsException("Email and/or password are incorrect");
         }
 
-        if (userCredentials.getEmail().equals(request.getNewEmail())) {
+        if (user.getEmail().equals(request.getNewEmail())) {
             throw new BadRequestException("New email cannot be the same as the current one");
         }
 
@@ -80,16 +65,10 @@ public class UserService {
             throw new EmailAlreadyUsedException("The provided new email is already used by another account");
         }
 
-        User user = userRepository.findByEmail(request.getCurrentEmail());
-        if (user == null) {
-            throw new NotFoundException("User not found");
-        }
-
         user.setEmail(request.getNewEmail());
-        userCredentials.setEmail(request.getNewEmail());
+
         try {
             userRepository.update(user);
-            credentialRepository.update(userCredentials);
         }
         catch (Exception e) {
             throw new GenericException("Failed to update user email due to server error");
@@ -101,15 +80,10 @@ public class UserService {
 
     public UserResponse updateUserUsername(UpdateUserUsernameRequest request) {
 
-        Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getPassword());
+        User user = authenticationRepository.authenticate(request.getEmail(), request.getPassword());
 
-        if (userCredentials == null) {
-            throw new InvalidCredentialsException("Email or password are incorrect");
-        }
-
-        User user = userRepository.findByEmail(request.getEmail());
         if (user == null) {
-            throw new NotFoundException("User not found");
+            throw new InvalidCredentialsException("Email or password are incorrect");
         }
 
         if (user.getUsername().equals(request.getNewUsername())) {
@@ -127,39 +101,20 @@ public class UserService {
         return toUserResponse(user);
     }
 
-
-    public UserResponse getUserByEmail(String email) {
-        User user;
-        try {
-            user = userRepository.findByEmail(email);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to retrieve user due to server error");
-        }
-
-        if (user != null) {
-            return toUserResponse(user);
-        }
-        else {
-            throw new NotFoundException("No user found with email: " + email);
-        }
-    }
-
     public UserResponse updateUserPassword(UpdateUserPasswordRequest request) {
-        Credential userCredentials = credentialRepository.authenticate(request.getEmail(), request.getCurrentPassword());
+        User userCredentials = authenticationRepository.authenticate(
+                request.getEmail(),
+                request.getCurrentPassword()
+        );
 
         if (userCredentials == null) {
             throw new InvalidCredentialsException("Email or password are incorrect");
         }
 
-        if (BcryptUtil.matches(request.getNewPassword(), userCredentials.getPassword())) {
-            throw new BadRequestException("New password cannot be the same as the old one");
-        }
-
         String newHashedPassword = BcryptUtil.bcryptHash(request.getNewPassword());
         userCredentials.setPassword(newHashedPassword);
         try {
-            credentialRepository.update(userCredentials);
+            userRepository.update(userCredentials);
         }
         catch (Exception e) {
             throw new GenericException("Failed to update user password due to server error");
@@ -177,6 +132,23 @@ public class UserService {
         }
         else {
             return null;
+        }
+    }
+
+    public UserResponse getUserByEmail(String email) {
+        User user;
+        try {
+            user = userRepository.findByEmail(email);
+        }
+        catch (Exception e) {
+            throw new GenericException("Failed to retrieve user due to server error");
+        }
+
+        if (user != null) {
+            return toUserResponse(user);
+        }
+        else {
+            throw new NotFoundException("No user found with email: " + email);
         }
     }
 

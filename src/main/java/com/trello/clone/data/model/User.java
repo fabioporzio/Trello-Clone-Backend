@@ -9,13 +9,15 @@ public class User {
     public ObjectId id;
     private String email;
     private String username;
+    private String password;
 
     public User() {
     }
 
-    public User(String email, String username) {
+    public User(String email, String username, String password) {
         this.email = email;
         this.username = username;
+        this.password = password;
     }
 
     public ObjectId getId() {
@@ -40,5 +42,13 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

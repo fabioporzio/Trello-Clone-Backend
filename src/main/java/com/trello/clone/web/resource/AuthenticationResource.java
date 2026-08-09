@@ -1,5 +1,6 @@
 package com.trello.clone.web.resource;
 
+import com.trello.clone.service.AuthenticationService;
 import com.trello.clone.service.UserService;
 import com.trello.clone.web.model.authentication.AccessTokenResponse;
 import com.trello.clone.web.model.authentication.LoginRequest;
@@ -24,9 +25,12 @@ import java.util.Set;
 
 @Path("api/auth")
 public class AuthenticationResource {
+
+    private final AuthenticationService  authenticationService;
     private final UserService userService;
 
-    public AuthenticationResource(UserService userService) {
+    public AuthenticationResource(AuthenticationService authenticationService,  UserService userService) {
+        this.authenticationService = authenticationService;
         this.userService = userService;
     }
 
@@ -35,7 +39,7 @@ public class AuthenticationResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(LoginRequest request) {
-        UserResponse user = userService.authenticate(request.getEmail(), request.getPassword());
+        UserResponse user = authenticationService.authenticate(request.getEmail(), request.getPassword());
 
         String accessToken = getAccessToken(user);
         String refreshToken = getRefreshToken(user);
