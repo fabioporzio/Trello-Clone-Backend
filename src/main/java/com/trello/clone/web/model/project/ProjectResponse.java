@@ -3,6 +3,7 @@ package com.trello.clone.web.model.project;
 import org.bson.types.ObjectId;
 
 import java.util.List;
+import java.util.Set;
 
 public class ProjectResponse {
 
@@ -10,10 +11,13 @@ public class ProjectResponse {
     private String name;
     private List<String> phases;
     private String owner;
-    private List<String> team;
-    private List<String> invitedUsers;
+    private Set<String> team;
+    private Set<String> invitedUsers;
 
-    public ProjectResponse(ObjectId id, String name, List<String> phases, String owner, List<String> team,  List<String> invitedUsers) {
+    public ProjectResponse() {
+    }
+
+    public ProjectResponse(ObjectId id, String name, List<String> phases, String owner, Set<String> team, Set<String> invitedUsers) {
         this.id = id;
         this.name = name;
         this.phases = phases;
@@ -54,19 +58,19 @@ public class ProjectResponse {
         this.owner = owner;
     }
 
-    public List<String> getTeam() {
+    public Set<String> getTeam() {
         return team;
     }
 
-    public void setTeam(List<String> team) {
+    public void setTeam(Set<String> team) {
         this.team = team;
     }
 
-    public List<String> getInvitedUsers() {
+    public Set<String> getInvitedUsers() {
         return invitedUsers;
     }
 
-    public void setInvitedUsers(List<String> invitedUsers) {
+    public void setInvitedUsers(Set<String> invitedUsers) {
         this.invitedUsers = invitedUsers;
     }
 }

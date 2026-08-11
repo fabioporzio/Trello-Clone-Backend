@@ -39,12 +39,11 @@ public class ProjectResource  {
     @GET
     @Path("/{projectId}")
     @RolesAllowed({"access_token"})
-    public Response getProjectById(@PathParam("projectId") String stringProjectId) {
-        ObjectId projectId = new ObjectId(stringProjectId);
-        ProjectResponse projectResponse = projectService.getProjectById(projectId);
-        return Response.ok()
-                .entity(projectResponse)
-                .build();
+    public ProjectResponse getProjectById(
+            @PathParam("projectId") ObjectId projectId,
+            @Context SecurityContext securityContext
+    ) {
+        return projectService.getProjectById(projectId, securityContext.getUserPrincipal().getName());
     }
 
     @POST

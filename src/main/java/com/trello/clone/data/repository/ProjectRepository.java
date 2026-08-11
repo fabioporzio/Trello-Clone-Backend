@@ -10,7 +10,11 @@ import java.util.List;
 public class ProjectRepository implements PanacheMongoRepository<Project> {
 
     public List<Project> findProjectsByEmail(String email) {
-        return find("{'team':{'$in':[?1]}}", email)
-                .list();
+        return list("team", email);
+    }
+
+    /** Projects the user has been invited to but has not joined yet. */
+    public List<Project> findByPendingInvite(String email) {
+        return list("invitedUsers", email);
     }
 }

@@ -2,144 +2,160 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
+import com.trello.clone.service.exception.BadRequestException;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.service.exception.UnauthorizedException;
-import com.trello.clone.utils.MergeArraysUtils;
+import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
 
 @ApplicationScoped
 public class ProjectService {
-    private final ProjectRepository projectRepository;
-    private final MergeArraysUtils mergeArraysUtils;
 
-    public ProjectService(ProjectRepository projectRepository, MergeArraysUtils mergeArraysUtils) {
+    private final ProjectRepository projectRepository;
+    private final EmailUtils emailUtils;
+
+    public ProjectService(
+            ProjectRepository projectRepository,
+            EmailUtils emailUtils
+    ) {
         this.projectRepository = projectRepository;
-        this.mergeArraysUtils = mergeArraysUtils;
+        this.emailUtils = emailUtils;
     }
 
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
-        List<ProjectResponse> projectResponseList = new ArrayList<>();
-
         List<Project> projects;
         try {
-            projects = projectRepository.findProjectsByEmail(email);
-        }
-        catch (Exception e) {
+            projects = projectRepository.findProjectsByEmail(emailUtils.normalize(email));
+        } catch (Exception e) {
+            Log.error("Failed to gather projects", e);
             throw new GenericException("Failed to gather projects due to server error");
         }
 
+        List<ProjectResponse> responses = new ArrayList<>(projects.size());
         for (Project project : projects) {
-            projectResponseList.add(toProjectResponse(project));
+            responses.add(toProjectResponse(project));
         }
-
-        return projectResponseList;
+        return responses;
     }
 
-    public ProjectResponse getProjectById(ObjectId projectId) {
-        Project project;
-        try {
-            project = projectRepository.findById(projectId);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to retrieve project due to server error");
-        }
-
-        if (project == null) {
-            throw new NotFoundException("Project with ID " + projectId + " not found");
-        }
+    public ProjectResponse getProjectById(ObjectId projectId, String email) {
+        String actor = emailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireMember(project, actor);
         return toProjectResponse(project);
     }
 
+    // CREATE
+
     public ProjectResponse createProject(CreateProjectRequest request, String email) {
+        String owner = emailUtils.normalize(email);
 
-        List<String> team = new ArrayList<>();
-        team.add(email);
-
-        List<String> phases = new ArrayList<>();
-        List<String> invitedUsers = new ArrayList<>();
+        Set<String> team =  new LinkedHashSet<>();
+        team.add(owner);
 
         Project project = new Project(
                 request.getName(),
-                phases,
-                email,
+                new ArrayList<>(),
+                owner,
                 team,
-                invitedUsers
+                new LinkedHashSet<>(),
+                Instant.now(),
+                Instant.now()
         );
 
-        try {
-            projectRepository.persist(project);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to create project due to server error: " + e.getMessage());
-        }
-
+        persist(project);
         return toProjectResponse(project);
     }
 
+    // UPDATE
+
     public ProjectResponse updateProject(UpdateProjectRequest request, ObjectId projectId, String email) {
-        Project project = projectRepository.findById(projectId);
-        if (project == null) {
-            throw new NotFoundException("Project with ID " + projectId + " not found");
-        }
+        String actor = emailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireMember(project, actor);
+
+        // Reject contradictory instructions before mutating anything, so a bad
+        // request never leaves the project half-updated.
+        rejectOverlap(request.getPhasesToAdd(), request.getPhasesToRemove(), "phase");
+        rejectOverlap(request.getUsersToInvite(), request.getInvitesToRevoke(), "user");
+        rejectOverlap(request.getUsersToInvite(), request.getMembersToRemove(), "user");
 
         if (request.getName() != null) {
-            project.setName(request.getName());
+            project.rename(request.getName());
         }
 
-        if (request.getPhases() != null) {
-            if (request.getPhases().size() > project.getPhases().size()) {
-                project.setPhases(mergeArraysUtils.mergeDistinct(project.getPhases(), request.getPhases()));
-            }
-            else {
-                project.setPhases(request.getPhases());
-            }
+        // Order matters: remove before add (frees a name for reuse in the same
+        // call), rename before reorder (so the ordering can use the new names).
+        if (isNotEmpty(request.getPhasesToRemove())) {
+            project.removePhases(request.getPhasesToRemove());
         }
 
-        if (request.getOwner() != null && request.getOwner().equals(email)) {
-            project.setOwner(request.getOwner());
+        if (isNotEmpty(request.getPhasesToAdd())) {
+            project.addPhases(request.getPhasesToAdd());
         }
 
-        if (request.getTeam() != null) {
-            if (request.getTeam().contains(project.getOwner())) {
-                if (request.getTeam().size() > project.getTeam().size()) {
-                    project.setTeam(mergeArraysUtils.mergeDistinct(project.getTeam(), request.getTeam()));
-                }
-                else {
-                    project.setTeam(request.getTeam());
-                }
-            }
-            else {
-                throw new UnauthorizedException("You are not allowed to leave this project this project");
+        if (request.getPhaseRenames() != null) {
+            for (Map.Entry<String, String> rename : request.getPhaseRenames().entrySet()) {
+                project.renamePhase(rename.getKey(), rename.getValue());
             }
         }
 
-        if (request.getInvitedUsers() != null) {
-            if (request.getInvitedUsers().size() > project.getInvitedUsers().size()) {
-                project.setInvitedUsers(
-                        mergeArraysUtils.mergeDistinct(project.getInvitedUsers(), request.getInvitedUsers())
-                );
+        if (request.getPhaseOrder() != null) {
+            project.reorderPhases(request.getPhaseOrder());
+        }
+
+        if (request.getNewOwner() != null) {
+            requireOwner(project, actor);
+            project.transferOwnershipTo(emailUtils.normalize(request.getNewOwner()));
+        }
+
+        if (isNotEmpty(request.getUsersToInvite())) {
+            requireOwner(project, actor);
+            for (String invitee : normalized(request.getUsersToInvite())) {
+                project.invite(invitee);
             }
-            else {
-                project.setInvitedUsers(request.getInvitedUsers());
+        }
+
+        if (isNotEmpty(request.getInvitesToRevoke())) {
+            requireOwner(project, actor);
+            for (String invitee : normalized(request.getInvitesToRevoke())) {
+                project.revokeInvite(invitee);
             }
         }
 
-        try {
-            projectRepository.update(project);
-
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to update project due to server error: " + e.getMessage());
+        if (isNotEmpty(request.getMembersToRemove())) {
+            for (String target : normalized(request.getMembersToRemove())) {
+                removeMember(project, actor, target);
+            }
         }
 
+        project.touch();
+        update(project);
+        return toProjectResponse(project);
+    }
+
+    // INVITATION FLOW
+
+    public ProjectResponse acceptInvite(ObjectId projectId, String email) {
+        String actor = emailUtils.normalize(email);
+        Project project = requireProject(projectId);
+
+        if (!project.isInvited(actor)) {
+            throw new NotFoundException("No pending invitation for this project");
+        }
+
+        project.acceptInvite(actor);
+        project.touch();
+        update(project);
         return toProjectResponse(project);
     }
 
@@ -158,9 +174,74 @@ public class ProjectService {
             projectRepository.delete(project);
         }
         catch (Exception e) {
+            Log.error("Failed to delete project: " + e);
             throw new GenericException("Failed to delete project due to server error");
         }
+
         return toProjectResponse(project);
+    }
+
+    // RULES
+
+    /**
+     * Removing another member requires ownership; removing yourself is always
+     * allowed. The "owner cannot be removed" invariant lives on the entity.
+     */
+    private void removeMember(Project project, String actor, String target) {
+        if (!actor.equals(target)) {
+            requireOwner(project, actor);
+        }
+        project.removeMember(target);
+    }
+
+    private Project requireProject(ObjectId projectId) {
+        Project project = projectRepository.findById(projectId);
+
+        if (project == null) {
+            throw new NotFoundException("Project with ID " + projectId + " not found");
+        }
+
+        return project;
+    }
+
+    private void requireMember(Project project, String actor) {
+        if (!project.isMember(actor)) {
+            throw new NotFoundException("Project with ID " + project.getId() + " not found");
+        }
+    }
+
+    private void requireOwner(Project project, String actor) {
+        if (!project.isOwner(actor)) {
+            throw new UnauthorizedException("Only the project owner can perform this operation");
+        }
+    }
+
+    // PERSISTENCE
+
+    private void persist(Project project) {
+        try {
+            projectRepository.persist(project);
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Failed to persist project '%s' owned by %s", project.getName(), project.getOwner());
+            throw new GenericException("Failed to create project due to server error");
+        }
+    }
+
+    private void update(Project project) {
+        try {
+            projectRepository.update(project);
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Failed to update project %s", project.getId());
+            throw new GenericException("Failed to update project due to server error");
+        }
+    }
+
+    // UTILS
+
+    private static boolean isNotEmpty(Collection<String> values) {
+        return values != null && !values.isEmpty();
     }
 
     private ProjectResponse toProjectResponse (Project project){
@@ -172,5 +253,53 @@ public class ProjectService {
                 project.getTeam(),
                 project.getInvitedUsers()
         );
+    }
+
+    /** Handles the "Add X and remove X in the same request" case. */
+    private static void rejectOverlap(Collection<String> left, Collection<String> right, String label) {
+        if (!isNotEmpty(left) || !isNotEmpty(right)) {
+            return;
+        }
+
+        List<String> conflicts = new ArrayList<>();
+
+        for (String leftValue : left) {
+            for (String rightValue : right) {
+                if (isSameValue(leftValue, rightValue)) {
+                    conflicts.add(leftValue.trim());
+                    break;
+                }
+            }
+        }
+
+        if (!conflicts.isEmpty()) {
+            throw new BadRequestException("The same " + label
+                    + " cannot be added and removed in one request: " + String.join(", ", conflicts));
+        }
+    }
+
+    private static boolean isSameValue(String first, String second) {
+        if (first == null || second == null) {
+            return false;
+        }
+
+        return first.trim().equalsIgnoreCase(second.trim());
+    }
+
+    /**
+     * Cleans up a list of emails coming from the request body: trims them,
+     * lowercases them, drops empty entries and collapses duplicates.
+     */
+    private Set<String> normalized(Collection<String> values) {
+        Set<String> result = new LinkedHashSet<>();
+
+        for (String value : values) {
+            String email = emailUtils.normalize(value);
+            if (email != null && !email.isBlank()) {
+                result.add(email);
+            }
+        }
+
+        return result;
     }
 }
