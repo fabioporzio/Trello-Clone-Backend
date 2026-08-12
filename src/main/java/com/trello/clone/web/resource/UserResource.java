@@ -6,6 +6,8 @@ import jakarta.annotation.security.DenyAll;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -59,24 +61,21 @@ public class UserResource {
     }
 
     @GET
-    @Path("/all")
+    @Path("/search")
     @RolesAllowed({"access_token"})
-    @Operation(
-            summary = "Returns all users data",
-            description = "Validates JWT access token and returns users' email and username."
-    )
+    @Operation(summary = "Search users by username",
+            description = "Returns a limited list of users whose username starts with the query term.")
     @SecurityRequirement(name = "BearerAuth")
-    @APIResponse(
-            responseCode = "200",
-            description = "Retrieval successful",
+    @APIResponse(responseCode = "200", description = "Matching users",
             content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = UserResponse.class))
-    )
-    @APIResponse(responseCode = "401", description = "Token is expired")
-    public Response getAllUsers() {
-        List<UserResponse> userResponseList = userService.getAllUsers();
-
-        return Response.ok(userResponseList).build();
+                    schema = @Schema(implementation = UserSummaryResponse.class)))
+    public Response searchUsers(
+            @QueryParam("searchTerm")
+            @NotBlank(message = "Search term is required")
+            @Size(min = 2, message = "Search term must be at least 2 characters")
+            String searchTerm) {
+        List<UserSummaryResponse> results = userService.searchUsers(searchTerm);
+        return Response.ok(results).build();
     }
 
     @POST

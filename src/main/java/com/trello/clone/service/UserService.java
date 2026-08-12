@@ -150,20 +150,15 @@ public class UserService {
         }
     }
 
-    public List<UserResponse> getAllUsers() {
-        List<User> users;
-        try {
-            users = userRepository.findAll().stream().toList();
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to retrieve users due to server error");
-        }
+    public List<UserSummaryResponse> searchUsers(String searchTerm) {
+        int maxResults = 20;
+        List<User> users = userRepository.searchByUsernamePrefix(searchTerm, maxResults);
 
-        List<UserResponse> userResponseList = new ArrayList<>();
+        List<UserSummaryResponse> result = new ArrayList<>();
         for (User user : users) {
-            userResponseList.add(toUserResponse(user));
+            result.add(new UserSummaryResponse(user.id.toString(), user.getUsername()));
         }
-        return userResponseList;
+        return result;
     }
 
     private static UserResponse toUserResponse(User user) {
