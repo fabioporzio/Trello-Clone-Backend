@@ -45,10 +45,9 @@ public class UserService {
         }
     }
 
-    public UserResponse updateUserEmail(UpdateUserEmailRequest request) {
-
+    public UserResponse updateUserEmail(UpdateUserEmailRequest request, String email) {
         User user = authenticationRepository.authenticate(
-                request.getCurrentEmail(),
+                email,
                 request.getPassword()
         );
 
@@ -78,9 +77,9 @@ public class UserService {
     }
 
 
-    public UserResponse updateUserUsername(UpdateUserUsernameRequest request) {
+    public UserResponse updateUserUsername(UpdateUserUsernameRequest request, String email) {
 
-        User user = authenticationRepository.authenticate(request.getEmail(), request.getPassword());
+        User user = authenticationRepository.authenticate(email, request.getPassword());
 
         if (user == null) {
             throw new InvalidCredentialsException("Email or password are incorrect");
@@ -101,9 +100,9 @@ public class UserService {
         return toUserResponse(user);
     }
 
-    public UserResponse updateUserPassword(UpdateUserPasswordRequest request) {
+    public UserResponse updateUserPassword(UpdateUserPasswordRequest request, String email) {
         User userCredentials = authenticationRepository.authenticate(
-                request.getEmail(),
+                email,
                 request.getCurrentPassword()
         );
 
@@ -120,8 +119,7 @@ public class UserService {
             throw new GenericException("Failed to update user password due to server error");
         }
 
-        return toUserResponse(userRepository.findByEmail(request.getEmail()));
-
+        return toUserResponse(userCredentials);
     }
 
     public ObjectId getIdByUser(UserResponse userResponse) {
@@ -148,7 +146,7 @@ public class UserService {
             return toUserResponse(user);
         }
         else {
-            throw new NotFoundException("No user found with email: " + email);
+            throw new UnauthorizedException("Unable to retrieve user. Please verify email and password");
         }
     }
 

@@ -11,11 +11,18 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.List;
 
 @DenyAll
 @Path("api/user")
+@Tag(name = "User Resources", description = "Registration, update user info and users info retrieval operations")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
@@ -28,6 +35,19 @@ public class UserResource {
 
     @GET
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Returns user's data based on JWT access token",
+            description = "Validates JWT access token and returns user's email and username."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Retrieval successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "404", description = "User not found")
     public Response getUserFromAccessToken(@Context SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
 
@@ -41,6 +61,18 @@ public class UserResource {
     @GET
     @Path("/all")
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Returns all users data",
+            description = "Validates JWT access token and returns users' email and username."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Retrieval successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
     public Response getAllUsers() {
         List<UserResponse> userResponseList = userService.getAllUsers();
 
@@ -50,6 +82,17 @@ public class UserResource {
     @POST
     @Path("/register")
     @PermitAll
+    @Operation(
+            summary = "Allows a user to register",
+            description = "Allows user registration by entering email and password"
+    )
+    @APIResponse(
+            responseCode = "201",
+            description = "Registration successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "409", description = "A user with this email already exists")
     public Response registerUser(@Valid CreateUserRequest createUserRequest) {
         UserResponse userResponse = userService.registerUser(createUserRequest);
         return Response.status(Response.Status.CREATED)
@@ -60,8 +103,27 @@ public class UserResource {
     @PUT
     @Path("/update-email")
     @RolesAllowed({"access_token"})
-    public Response updateUserEmail(@Valid UpdateUserEmailRequest updateUserEmailRequest) {
-        UserResponse userResponse = userService.updateUserEmail(updateUserEmailRequest);
+    @Operation(
+            summary = "Updates user email",
+            description = "Validates JWT access token and updates user's email if current email and password are correct."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Email update successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "Email and/or password are incorrect")
+    @APIResponse(responseCode = "409", description = "A user with this email already exists")
+    public Response updateUserEmail(
+            @Valid UpdateUserEmailRequest updateUserEmailRequest,
+            @Context SecurityContext securityContext
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+
+        UserResponse userResponse = userService.updateUserEmail(updateUserEmailRequest, email);
         return Response.ok()
                 .entity(userResponse)
                 .build();
@@ -70,22 +132,56 @@ public class UserResource {
     @PUT
     @Path("/update-username")
     @RolesAllowed({"access_token"})
-    public Response updateUserUsername(@Valid UpdateUserUsernameRequest request) {
-        UserResponse userResponse = userService.updateUserUsername(request);
+    @Operation(
+            summary = "Updates user username",
+            description = "Validates JWT access token and updates user's username if email and password are correct."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Username update successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "Email and/or password are incorrect")
+    public Response updateUserUsername(
+            @Valid UpdateUserUsernameRequest request,
+            @Context SecurityContext securityContext
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+
+        UserResponse userResponse = userService.updateUserUsername(request, email);
         return Response.ok()
                 .entity(userResponse)
                 .build();
     }
-
 
     @PUT
     @Path("/update-password")
     @RolesAllowed({"access_token"})
-    public Response updateUserPassword(@Valid UpdateUserPasswordRequest request) {
-        UserResponse userResponse = userService.updateUserPassword(request);
+    @Operation(
+            summary = "Updates user password",
+            description = "Validates JWT access token and updates user's password if email and current password are correct."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Password update successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = UserResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "Email and/or password are incorrect")
+    public Response updateUserPassword(
+            @Valid UpdateUserPasswordRequest request,
+            @Context SecurityContext securityContext
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+
+        UserResponse userResponse = userService.updateUserPassword(request, email);
         return Response.ok()
                 .entity(userResponse)
                 .build();
     }
-
 }
