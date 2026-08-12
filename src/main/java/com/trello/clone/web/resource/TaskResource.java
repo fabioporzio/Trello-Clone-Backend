@@ -191,8 +191,7 @@ public class TaskResource {
     )
     @APIResponse(responseCode = "401", description = "Token is expired")
     @APIResponse(responseCode = "403", description = "You are not a member of this project")
-    @APIResponse(responseCode = "404", description = "Task not found")
-    @APIResponse(responseCode = "404", description = "No project found for this task")
+    @APIResponse(responseCode = "404", description = "Task or related project not found")
     public Response deleteTaskById(
             @PathParam("taskId") String stringTaskId,
             @Context SecurityContext securityContext
