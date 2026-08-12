@@ -2,6 +2,8 @@ package com.trello.clone.web.resource;
 
 import com.trello.clone.service.UserService;
 import com.trello.clone.web.model.user.*;
+import io.quarkiverse.bucket4j.runtime.RateLimited;
+import io.quarkiverse.bucket4j.runtime.resolver.IpResolver;
 import jakarta.annotation.security.DenyAll;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -63,12 +65,14 @@ public class UserResource {
     @GET
     @Path("/search")
     @RolesAllowed({"access_token"})
+    @RateLimited(bucket = "search", identityResolver = IpResolver.class)
     @Operation(summary = "Search users by username",
             description = "Returns a limited list of users whose username starts with the query term.")
     @SecurityRequirement(name = "BearerAuth")
     @APIResponse(responseCode = "200", description = "Matching users",
             content = @Content(mediaType = "application/json",
                     schema = @Schema(implementation = UserSummaryResponse.class)))
+    @APIResponse(responseCode = "429", description = "Rate limit exceeded — too many search requests")
     public Response searchUsers(
             @QueryParam("searchTerm")
             @NotBlank(message = "Search term is required")

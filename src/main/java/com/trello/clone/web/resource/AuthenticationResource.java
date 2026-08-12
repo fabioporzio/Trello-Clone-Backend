@@ -6,6 +6,8 @@ import com.trello.clone.web.model.authentication.AccessTokenResponse;
 import com.trello.clone.web.model.authentication.LoginRequest;
 import com.trello.clone.web.model.authentication.TokenResponse;
 import com.trello.clone.web.model.user.UserResponse;
+import io.quarkiverse.bucket4j.runtime.RateLimited;
+import io.quarkiverse.bucket4j.runtime.resolver.IpResolver;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
@@ -46,6 +48,7 @@ public class AuthenticationResource {
 
     @POST
     @Path("/login")
+    @RateLimited(bucket = "login", identityResolver = IpResolver.class)
     @Operation(
             summary = "Authenticate a user",
             description = "Validates email and password and returns a JWT access token plus a refresh token."
@@ -57,6 +60,7 @@ public class AuthenticationResource {
                     schema = @Schema(implementation = TokenResponse.class))
     )
     @APIResponse(responseCode = "401", description = "Invalid email or password")
+    @APIResponse(responseCode = "429", description = "Too many login attempts — try again later")
     public Response login(@Valid LoginRequest request) {
         UserResponse user = authenticationService.authenticate(request.getEmail(), request.getPassword());
 
