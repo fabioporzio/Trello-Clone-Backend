@@ -3,11 +3,28 @@ package com.trello.clone.web.model.project;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Schema(
+        description = "Model for project update. All fields are optional; only the provided deltas are applied.",
+        examples = """
+        {
+          "name": "Trello Clone Backend",
+          "phasesToAdd": ["Deployment", "Monitoring"],
+          "phasesToRemove": ["Login Throttling"],
+          "phaseRenames": {"JWT Implementation": "Authentication"},
+          "phaseOrder": ["Authentication", "User Search", "Deployment", "Monitoring"],
+          "newOwner": "newlead@example.com",
+          "usersToInvite": ["designer@example.com"],
+          "invitesToRevoke": ["olduser@example.com"],
+          "membersToRemove": ["formermember@example.com"]
+        }
+        """
+)
 public class UpdateProjectRequest {
 
     @Size(max = 100, message = "Project name cannot exceed 100 characters")
@@ -29,6 +46,11 @@ public class UpdateProjectRequest {
 
     private Set<@Email String> usersToInvite;
     private Set<@Email String> invitesToRevoke;
+
+    @Schema(
+            description = "Already accepted members that must be removed fro the project",
+            examples = {"user1@email.com", "user2@email.com"}
+    )
     private Set<@Email String> membersToRemove;
 
     public String getName() {

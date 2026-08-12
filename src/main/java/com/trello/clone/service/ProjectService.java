@@ -35,7 +35,8 @@ public class ProjectService {
         List<Project> projects;
         try {
             projects = projectRepository.findProjectsByEmail(emailUtils.normalize(email));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             Log.error("Failed to gather projects", e);
             throw new GenericException("Failed to gather projects due to server error");
         }
@@ -56,7 +57,10 @@ public class ProjectService {
 
     // CREATE
 
-    public ProjectResponse createProject(CreateProjectRequest request, String email) {
+    public ProjectResponse createProject(
+            CreateProjectRequest request,
+            String email
+    ) {
         String owner = emailUtils.normalize(email);
 
         Set<String> team =  new LinkedHashSet<>();

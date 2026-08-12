@@ -1,17 +1,30 @@
 package com.trello.clone.web.model.project;
 
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.util.List;
 import java.util.Set;
 
+@Schema(description = "Project's details issued after JWT access token validation")
 public class ProjectResponse {
 
+    @Schema(description = "Project ObjectId")
     private ObjectId id;
+
+    @Schema(description = "Project Name")
     private String name;
+
+    @Schema(description = "Project Phases")
     private List<String> phases;
+
+    @Schema(description = "Project Owner")
     private String owner;
+
+    @Schema(description = "Project Team members")
     private Set<String> team;
+
+    @Schema(description = "Project Invited Users")
     private Set<String> invitedUsers;
 
     public ProjectResponse() {
