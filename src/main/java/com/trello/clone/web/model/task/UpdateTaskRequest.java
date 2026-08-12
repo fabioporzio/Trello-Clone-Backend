@@ -1,7 +1,24 @@
 package com.trello.clone.web.model.task;
 
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
 import java.util.List;
 
+@Schema(
+        description = "Model for task update. All fields are optional; only the provided deltas are applied.",
+        examples = """
+        {
+          "title": "Wireframe Creation",
+          "description": "Lorem ipsum...",
+          "completed": false,
+          "phase": "UX Design",
+          "tagsToAdd": ["Design", "Important"],
+          "tagsToRemove": ["Design", "Important"],
+          "assigneesToAdd": ["designer@example.com"],
+          "assigneesToRemove": ["olduser@example.com"],
+        }
+        """
+)
 public class UpdateTaskRequest {
 
     private String title;

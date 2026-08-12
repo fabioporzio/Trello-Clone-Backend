@@ -2,27 +2,25 @@ package com.trello.clone.web.model.task;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import org.bson.types.ObjectId;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-import java.util.List;
-
+@Schema(description = "Minimal info for new task creation")
 public class CreateTaskRequest {
 
+    @Schema(description = "Task Name", examples = "Wireframe Creation")
     @NotEmpty(message = "Task title is required")
     @NotBlank(message = "Task title is required")
     private String title;
 
+    @Schema(description = "Task Description", examples = "Lorem ipsum...")
     @NotEmpty(message = "Task description is required")
     @NotBlank(message = "Task description is required")
     private String description;
 
+    @Schema(description = "The phase the tasks belongs to", examples = "UX Design")
     @NotEmpty(message = "Task phase is required")
     @NotBlank(message = "Task phase is required")
     private String phase;
-
-    @NotEmpty(message = "Task's project is required")
-    @NotBlank(message = "Task's project is required")
-    private String projectId;
 
     public String getTitle() {
         return title;
@@ -46,13 +44,5 @@ public class CreateTaskRequest {
 
     public void setPhase(String phase) {
         this.phase = phase;
-    }
-
-    public String getProjectId() {
-        return projectId;
-    }
-
-    public void setProjectId(String projectId) {
-        this.projectId = projectId;
     }
 }

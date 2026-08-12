@@ -1,7 +1,9 @@
 package com.trello.clone.service;
 
+import com.trello.clone.data.model.Project;
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.DeadlineRepository;
+import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.UnauthorizedException;
@@ -24,11 +26,13 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final MergeArraysUtils mergeArraysUtils;
     private final DeadlineRepository deadlineRepository;
+    private final ProjectRepository projectRepository;
 
-    public TaskService(TaskRepository taskRepository,  MergeArraysUtils utils,  DeadlineRepository deadlineRepository) {
+    public TaskService(TaskRepository taskRepository, MergeArraysUtils utils, DeadlineRepository deadlineRepository, ProjectRepository projectRepository) {
         this.taskRepository = taskRepository;
         this.mergeArraysUtils = utils;
         this.deadlineRepository = deadlineRepository;
+        this.projectRepository = projectRepository;
     }
 
     public TaskResponse getTaskById(ObjectId taskId) {
@@ -47,12 +51,15 @@ public class TaskService {
     }
 
     public Map<String, List<TaskResponse>> getAllTasksByProject(
+            String email,
             ObjectId projectId,
             List<String> tags,
             List<String> assignees
     ) {
-        List<Task> tasks;
+        Project project = requireProject(projectId);
+        requireMember(project, email);
 
+        List<Task> tasks;
         try {
             tasks = taskRepository.getTasksByProjectIdTagsAndAssignees(projectId, tags, assignees);
         }
@@ -72,11 +79,16 @@ public class TaskService {
     }
 
 
-    public TaskResponse createTask(CreateTaskRequest request) {
-        ObjectId projectId = new ObjectId(request.getProjectId());
+    public TaskResponse createTask(
+            CreateTaskRequest request,
+            String email,
+            ObjectId projectId
+    ) {
+        Project project = requireProject(projectId);
+        requireMember(project, email);
+
         List<String> assignees = new ArrayList<>();
         List<String> tags = new ArrayList<>();
-
         Task task = new Task(
                 request.getTitle(),
                 request.getDescription(),
@@ -99,10 +111,9 @@ public class TaskService {
     }
 
     public TaskResponse updateTask(UpdateTaskRequest request, ObjectId taskId, String email) {
-        Task task = taskRepository.findById(taskId);
-        if (task == null) {
-            throw new NotFoundException("Task not found: " + taskId);
-        }
+        Task task = requireTask(taskId);
+        Project project = requireProject(task.getProjectId());
+        requireMember(project, email);
 
         if (request.getTitle() != null) {
             if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
@@ -177,10 +188,9 @@ public class TaskService {
     }
 
     public TaskResponse deleteTask(ObjectId taskId, String email) {
-        Task task = taskRepository.findById(taskId);
-        if (task == null) {
-            throw new NotFoundException("Task with ID " + taskId + " not found");
-        }
+        Task task = requireTask(taskId);
+        Project project = requireProject(task.getProjectId());
+        requireMember(project, email);
 
         if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
             throw new UnauthorizedException("You are not allowed to delete this task");
@@ -208,5 +218,31 @@ public class TaskService {
                 task.getEndDate(),
                 task.getProjectId()
         );
+    }
+
+    private Task requireTask(ObjectId taskId) {
+        Task task = taskRepository.findById(taskId);
+
+        if (task == null) {
+            throw new NotFoundException("Task with ID " + taskId + " not found");
+        }
+
+        return task;
+    }
+
+    private Project requireProject(ObjectId projectId) {
+        Project project = projectRepository.findById(projectId);
+
+        if (project == null) {
+            throw new NotFoundException("Project with ID " + projectId + " not found");
+        }
+
+        return project;
+    }
+
+    private void requireMember(Project project, String actor) {
+        if (!project.isMember(actor)) {
+            throw new UnauthorizedException("You are not a memer of this project");
+        }
     }
 }

@@ -13,6 +13,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,6 +39,19 @@ public class TaskResource {
     @GET
     @Path("/{taskId}")
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Gets task details by Task ObjectId",
+            description = "Validates JWT access token and returns the task details based on the given ObjectId."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Retrieval successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = TaskResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "404", description = "Task not found")
     public Response getTaskById(
             @PathParam("taskId") String stringTaskId
     ) {
@@ -49,11 +67,27 @@ public class TaskResource {
     @GET
     @Path("/project/{projectId}")
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Gets all tasks by project ObjectId",
+            description = "Validates JWT access token and returns all tasks linked to the same project by its ObjectId."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Retrieval successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = TaskResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "You are not a member of this project")
+    @APIResponse(responseCode = "404", description = "Project not found")
     public Response getTasksByProjectId(
+            @Context SecurityContext securityContext,
             @PathParam("projectId") String stringProjectId,
             @QueryParam("tags") String tagsCsv,
             @QueryParam("assignees") String assigneesCsv
     ) {
+        String email = securityContext.getUserPrincipal().getName();
         ObjectId projectId = new ObjectId(stringProjectId);
 
         List<String> tags;
@@ -72,16 +106,38 @@ public class TaskResource {
             assignees = Collections.emptyList();
         }
 
-        Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(projectId, tags, assignees);
+        Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(email, projectId, tags, assignees);
         return Response.ok()
                 .entity(mappedTasks)
                 .build();
     }
 
     @POST
+    @Path("/project/{projectId}")
     @RolesAllowed({"access_token"})
-    public Response createTask(@Valid CreateTaskRequest createTaskRequest) {
-        TaskResponse taskResponse = taskService.createTask(createTaskRequest);
+    @Operation(
+            summary = "Creates a task",
+            description = "Validates JWT access token and creates a task."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "201",
+            description = "Creation successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = TaskResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "You are not a member of this project")
+    @APIResponse(responseCode = "404", description = "Project not found")
+    public Response createTask(
+            @Valid CreateTaskRequest createTaskRequest,
+            @Context SecurityContext securityContext,
+            @PathParam("projectId") String stringProjectId
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+        ObjectId projectId = new ObjectId(stringProjectId);
+
+        TaskResponse taskResponse = taskService.createTask(createTaskRequest, email, projectId);
 
         return Response.status(Response.Status.CREATED)
                 .entity(taskResponse)
@@ -91,13 +147,28 @@ public class TaskResource {
     @PUT
     @Path("/{taskId}")
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Updates a task",
+            description = "Validates JWT access token and updates a task."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Update successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = TaskResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "You are not a member of this project")
+    @APIResponse(responseCode = "404", description = "Task or related project not found")
     public Response updateTask(
             @PathParam("taskId") String stringTaskId,
             @Context SecurityContext securityContext,
-            UpdateTaskRequest updateTaskRequest
+            @Valid UpdateTaskRequest updateTaskRequest
     ) {
         ObjectId taskId = new ObjectId(stringTaskId);
         String email = securityContext.getUserPrincipal().getName();
+
         TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId, email);
         return Response.ok()
                 .entity(taskResponse)
@@ -107,6 +178,21 @@ public class TaskResource {
     @DELETE
     @Path("/{taskId}")
     @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Deletes a task",
+            description = "Validates JWT access token and deletes a task."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(
+            responseCode = "200",
+            description = "Delete successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = TaskResponse.class))
+    )
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "403", description = "You are not a member of this project")
+    @APIResponse(responseCode = "404", description = "Task not found")
+    @APIResponse(responseCode = "404", description = "No project found for this task")
     public Response deleteTaskById(
             @PathParam("taskId") String stringTaskId,
             @Context SecurityContext securityContext
@@ -119,5 +205,4 @@ public class TaskResource {
                 .entity(taskResponse)
                 .build();
     }
-
 }
