@@ -2,6 +2,7 @@ package com.trello.clone.web.model.task;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 @Schema(description = "Minimal info for new task creation")
@@ -10,11 +11,10 @@ public class CreateTaskRequest {
     @Schema(description = "Task Name", examples = "Wireframe Creation")
     @NotEmpty(message = "Task title is required")
     @NotBlank(message = "Task title is required")
+    @Size(max = 100, message = "Task name cannot exceed 100 characters")
     private String title;
 
     @Schema(description = "Task Description", examples = "Lorem ipsum...")
-    @NotEmpty(message = "Task description is required")
-    @NotBlank(message = "Task description is required")
     private String description;
 
     @Schema(description = "The phase the tasks belongs to", examples = "UX Design")

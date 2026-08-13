@@ -11,7 +11,7 @@ public class EmailUtils {
     }
 
     /** Used to make case-insensitive comparison between emails. */
-    public String normalize(String email) {
+    public static String normalize(String email) {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

@@ -133,7 +133,7 @@ public class NotificationRepository {
     }
 
     public void addDeadlineNotification(Task task) {
-        String isoString = task.getEndDate(); // "2025-12-06T23:53:04.710+01:00"
+        String isoString = String.valueOf(task.getEndDate()); // "2025-12-06T23:53:04.710+01:00"
         ZonedDateTime dateTime = ZonedDateTime.parse(isoString);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");

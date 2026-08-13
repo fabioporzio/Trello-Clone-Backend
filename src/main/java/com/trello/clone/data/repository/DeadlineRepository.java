@@ -8,6 +8,7 @@ import org.bson.types.ObjectId;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 @ApplicationScoped
@@ -21,8 +22,8 @@ public class DeadlineRepository {
         stringCommands = redisDataSource.value(String.class);
     }
 
-    public boolean scheduleNotification(ObjectId taskId, String deadlineString) {
-        Instant taskDeadline = Instant.parse(deadlineString);
+    public boolean scheduleNotification(ObjectId taskId, LocalDate deadline) {
+        Instant taskDeadline = Instant.from(deadline);
 
         long ttl = calculateNotificationTTL(taskDeadline);
         System.out.println("TTL: " + ttl);

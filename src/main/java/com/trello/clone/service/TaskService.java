@@ -5,48 +5,42 @@ import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.DeadlineRepository;
 import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.data.repository.TaskRepository;
+import com.trello.clone.service.exception.BadRequestException;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.UnauthorizedException;
-import com.trello.clone.utils.MergeArraysUtils;
+import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.NotFoundException;
 import org.bson.types.ObjectId;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static com.trello.clone.utils.RequestDeltas.normalizedEmails;
+import static com.trello.clone.utils.RequestDeltas.rejectOverlap;
 
 @ApplicationScoped
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final MergeArraysUtils mergeArraysUtils;
     private final DeadlineRepository deadlineRepository;
     private final ProjectRepository projectRepository;
 
-    public TaskService(TaskRepository taskRepository, MergeArraysUtils utils, DeadlineRepository deadlineRepository, ProjectRepository projectRepository) {
+    public TaskService(TaskRepository taskRepository, DeadlineRepository deadlineRepository, ProjectRepository projectRepository) {
         this.taskRepository = taskRepository;
-        this.mergeArraysUtils = utils;
         this.deadlineRepository = deadlineRepository;
         this.projectRepository = projectRepository;
     }
 
-    public TaskResponse getTaskById(ObjectId taskId) {
-        Task task;
-        try {
-            task = taskRepository.findById(taskId);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to retrieve task due to server error");
-        }
+    public TaskResponse getTaskById(String email, ObjectId  projectId, ObjectId taskId) {
+        String requestSender = EmailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireMember(project, requestSender);
+        Task task = requireTask(taskId, projectId);
 
-        if (task == null) {
-            throw new NotFoundException("Task with ID " + taskId + " not found");
-        }
         return toTaskResponse(task);
     }
 
@@ -56,172 +50,163 @@ public class TaskService {
             List<String> tags,
             List<String> assignees
     ) {
+        String requestSender = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
-        requireMember(project, email);
+        requireMember(project, requestSender);
 
         List<Task> tasks;
         try {
-            tasks = taskRepository.getTasksByProjectIdTagsAndAssignees(projectId, tags, assignees);
+            tasks = taskRepository.getTasksByProjectIdTagsAndAssignees(
+                    projectId,
+                    normalizeTagFilters(tags),
+                    normalizedEmails(assignees)
+            );
         }
         catch (Exception e) {
-            throw new GenericException("Failed to retrieve tasks due to server error");
+            Log.error("Failed to gather tasks", e);
+            throw new GenericException("Failed to gather tasks due to server error");
         }
 
-        Map<String, List<TaskResponse>> groupedTasks = new HashMap<>();
+        Map<String, List<TaskResponse>> groupedTasks = new LinkedHashMap<>();
+        for (String phase : project.getPhases()) {
+            groupedTasks.put(phase, new ArrayList<>());
+        }
+
         for (Task task : tasks) {
-            TaskResponse taskResponse = toTaskResponse(task);
             String phase = task.getPhase();
-            groupedTasks.putIfAbsent(phase, new ArrayList<>());
-            groupedTasks.get(phase).add(taskResponse);
+            List<TaskResponse> bucket = groupedTasks.get(phase);
+
+            if (bucket == null) {
+                bucket = new ArrayList<>();
+                groupedTasks.put(phase, bucket);
+            }
+
+            bucket.add(toTaskResponse(task));
         }
 
         return groupedTasks;
     }
-
 
     public TaskResponse createTask(
             CreateTaskRequest request,
             String email,
             ObjectId projectId
     ) {
+        String requestSender = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
-        requireMember(project, email);
+        requireMember(project, requestSender);
+        String phase = requirePhase(project, request.getPhase());
 
-        List<String> assignees = new ArrayList<>();
-        List<String> tags = new ArrayList<>();
-        Task task = new Task(
+        Task task = Task.create(
                 request.getTitle(),
                 request.getDescription(),
-                false,
-                request.getPhase(),
-                tags,
-                assignees,
-                null,
+                phase,
                 projectId
         );
-
-        try {
-            taskRepository.persist(task);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to create task due to server error: " + e.getMessage());
-        }
+        persist(task);
 
         return toTaskResponse(task);
     }
 
-    public TaskResponse updateTask(UpdateTaskRequest request, ObjectId taskId, String email) {
-        Task task = requireTask(taskId);
-        Project project = requireProject(task.getProjectId());
-        requireMember(project, email);
+    public TaskResponse updateTask(
+            UpdateTaskRequest request,
+            String email,
+            ObjectId projectId,
+            ObjectId taskId
+    ) {
+        String requestSender = EmailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireMember(project, requestSender);
+        Task task = requireTask(taskId, projectId);
+
+        rejectOverlap(request.getTagsToAdd(), request.getTagsToRemove(), "tags");
+        rejectOverlap(request.getAssigneesToAdd(), request.getAssigneesToRemove(), "user");
 
         if (request.getTitle() != null) {
-            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                throw new UnauthorizedException("You are not allowed to update this task");
-            }
+            task.rename(request.getTitle());
+        }
 
-            task.setTitle(request.getTitle().trim());
+        if (isNotEmpty(request.getTagsToRemove())) {
+            task.removeTags(request.getTagsToRemove());
+        }
+
+        if (isNotEmpty(request.getTagsToAdd())) {
+            task.addTags(request.getTagsToAdd());
+        }
+
+        if (request.getTagsToRename() != null) {
+            for (Map.Entry<String, String> rename : request.getTagsToRename().entrySet()) {
+                task.renameTag(rename.getKey(), rename.getValue());
+            }
+        }
+
+        if (isNotEmpty(request.getAssigneesToAdd())) {
+            Set<String> toAssign = normalizedEmails(request.getAssigneesToAdd());
+            for (String assignee : toAssign) {
+                if (!project.isMember(assignee)) {
+                    throw new BadRequestException(assignee + " is not a member of this project");
+                }
+            }
+            task.assign(toAssign);
+        }
+
+        if (isNotEmpty(request.getAssigneesToRemove())) {
+            Set<String> toUnassign = normalizedEmails(request.getAssigneesToRemove());
+            task.unassign(toUnassign);
         }
 
         if (request.getDescription() != null) {
-            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                throw new UnauthorizedException("You are not allowed to update this task");
-            }
-
-            task.setDescription(request.getDescription().trim());
+            task.describe(request.getDescription());
         }
 
         if (request.getPhase() != null) {
-            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                throw new UnauthorizedException("You are not allowed to update this task");
-            }
-
-            task.setPhase(request.getPhase().trim());
+            task.moveTo(requirePhase(project, request.getPhase()));
         }
 
         if (request.getCompleted() != null) {
-            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                throw new UnauthorizedException("You are not allowed to update this task");
-            }
-
             task.setCompleted(request.getCompleted());
         }
 
-        if (request.getTags() != null) {
-            if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-                throw new UnauthorizedException("You are not allowed to update this task");
-            }
-
-            if (request.getTags().size() > task.getTags().size()) {
-                task.setTags(mergeArraysUtils.mergeDistinct(task.getTags(), request.getTags()));
-            }
-            else {
-                task.setTags(request.getTags());
-            }
+        if (request.getEndDate() != null) {
+            task.scheduleFor(request.getEndDate());
         }
 
-        if (request.getAssignees() != null) {
-            if (request.getAssignees().size() > task.getAssignees().size()) {
-                task.setAssignees(mergeArraysUtils.mergeDistinct(task.getAssignees(), request.getAssignees()));
-            }
-            else {
-                task.setAssignees(request.getAssignees());
-            }
-        }
+        update(task);
 
         if (request.getEndDate() != null) {
-            task.setEndDate(request.getEndDate());
             boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
             if (!success) {
                 throw new GenericException("Deadline not scheduled due to server error");
             }
         }
 
-        try {
-            taskRepository.update(task);
-        }
-        catch (Exception e) {
-            throw new GenericException("Failed to update task due to server error");
-        }
-
         return toTaskResponse(task);
     }
 
-    public TaskResponse deleteTask(ObjectId taskId, String email) {
-        Task task = requireTask(taskId);
-        Project project = requireProject(task.getProjectId());
-        requireMember(project, email);
-
-        if (!task.getAssignees().isEmpty() && !task.getAssignees().contains(email)) {
-            throw new UnauthorizedException("You are not allowed to delete this task");
-        }
+    public void deleteTask(
+            String email,
+            ObjectId projectId,
+            ObjectId taskId
+    ) {
+        String requestSender =  EmailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireMember(project, requestSender);
+        Task task = requireTask(taskId, projectId);
+        requireTaskDeleter(project, task, requestSender);
 
         try {
             taskRepository.delete(task);
         }
         catch (Exception e) {
+            Log.errorf(e, "Failed to delete task '%s'", task.getTitle());
             throw new GenericException("Failed to delete task due to server error");
         }
-
-        return toTaskResponse(task);
     }
 
-    private TaskResponse toTaskResponse(Task task) {
-        return new TaskResponse(
-                task.getId(),
-                task.getTitle(),
-                task.getDescription(),
-                task.isCompleted(),
-                task.getPhase(),
-                task.getTags(),
-                task.getAssignees(),
-                task.getEndDate(),
-                task.getProjectId()
-        );
-    }
+    // RULES
 
-    private Task requireTask(ObjectId taskId) {
-        Task task = taskRepository.findById(taskId);
+    private Task requireTask(ObjectId taskId, ObjectId projectId) {
+        Task task = taskRepository.findByIdAndProject(taskId, projectId);
 
         if (task == null) {
             throw new NotFoundException("Task with ID " + taskId + " not found");
@@ -242,7 +227,89 @@ public class TaskService {
 
     private void requireMember(Project project, String actor) {
         if (!project.isMember(actor)) {
-            throw new UnauthorizedException("You are not a memer of this project");
+            throw new UnauthorizedException("You are not a member of this project");
         }
+    }
+
+    private String requirePhase(Project project, String phase) {
+        if (phase == null || phase.isBlank()) {
+            throw new BadRequestException("Task phase cannot be empty");
+        }
+
+        String canonical = project.canonicalPhase(phase.trim());
+        if (canonical == null) {
+            throw new BadRequestException("The phase " + phase.trim()
+                    + " does not exist on project " + project.getName());
+        }
+
+        return canonical;
+    }
+
+    private void requireTaskDeleter(Project project, Task task, String actor) {
+        if (project.isOwner(actor)) {
+            return;
+        }
+
+        if (task.getAssignees().contains(actor)) {
+            return;
+        }
+
+        throw new UnauthorizedException("Only the assignees or the project owner can delete this task");
+    }
+
+    private List<String> normalizeTagFilters(Collection<String> tags) {
+        List<String> normalizedTags = new ArrayList<>();
+
+        if (tags == null) {
+            return normalizedTags;
+        }
+
+        for (String tag : tags) {
+            normalizedTags.add(tag == null ? null : tag.trim().toLowerCase(Locale.ROOT));
+        }
+
+        return normalizedTags;
+    }
+
+    // PERSISTENCE
+
+    private void persist(Task task) {
+        try {
+            taskRepository.persist(task);
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Failed to persist task '%s'", task.getTitle());
+            throw new GenericException("Failed to create task due to server error");
+        }
+    }
+
+    private void update(Task task) {
+        try {
+            taskRepository.update(task);
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Failed to update task %s", task.getId());
+            throw new GenericException("Failed to update task due to server error");
+        }
+    }
+
+    // UTILS
+
+    private static boolean isNotEmpty(Collection<String> values) {
+        return values != null && !values.isEmpty();
+    }
+
+    private TaskResponse toTaskResponse(Task task) {
+        return new TaskResponse(
+                task.getId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.isCompleted(),
+                task.getPhase(),
+                List.copyOf(task.getTags()),
+                new LinkedHashSet<>(task.getAssignees()),
+                task.getEndDate(),
+                task.getProjectId()
+        );
     }
 }

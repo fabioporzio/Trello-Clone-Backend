@@ -19,13 +19,10 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @DenyAll
-@Path("/api/task")
+@Path("/api/project/{projectId}/task")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class TaskResource {
@@ -53,11 +50,13 @@ public class TaskResource {
     @APIResponse(responseCode = "401", description = "Token is expired")
     @APIResponse(responseCode = "404", description = "Task not found")
     public Response getTaskById(
-            @PathParam("taskId") String stringTaskId
+            @Context SecurityContext securityContext,
+            @PathParam("projectId") ObjectId projectId,
+            @PathParam("taskId") ObjectId taskId
     ) {
-        ObjectId taskId = new ObjectId(stringTaskId);
+        String requestSenderEmail = securityContext.getUserPrincipal().getName();
 
-        TaskResponse taskResponse = taskService.getTaskById(taskId);
+        TaskResponse taskResponse = taskService.getTaskById(requestSenderEmail, projectId, taskId);
 
         return Response.ok()
                 .entity(taskResponse)
@@ -65,7 +64,6 @@ public class TaskResource {
     }
 
     @GET
-    @Path("/project/{projectId}")
     @RolesAllowed({"access_token"})
     @Operation(
             summary = "Gets all tasks by project ObjectId",
@@ -83,28 +81,14 @@ public class TaskResource {
     @APIResponse(responseCode = "404", description = "Project not found")
     public Response getTasksByProjectId(
             @Context SecurityContext securityContext,
-            @PathParam("projectId") String stringProjectId,
+            @PathParam("projectId") ObjectId projectId,
             @QueryParam("tags") String tagsCsv,
             @QueryParam("assignees") String assigneesCsv
     ) {
         String email = securityContext.getUserPrincipal().getName();
-        ObjectId projectId = new ObjectId(stringProjectId);
 
-        List<String> tags;
-        if (tagsCsv != null && !tagsCsv.isEmpty()) {
-            tags = Arrays.asList(tagsCsv.split(","));
-        }
-        else {
-            tags = Collections.emptyList();
-        }
-
-        List<String> assignees;
-        if (assigneesCsv != null && !assigneesCsv.isEmpty()) {
-            assignees = Arrays.asList(assigneesCsv.split(","));
-        }
-        else {
-            assignees = Collections.emptyList();
-        }
+        List<String> tags = parseCsv(tagsCsv);
+        List<String> assignees = parseCsv(assigneesCsv);
 
         Map<String, List<TaskResponse>> mappedTasks = taskService.getAllTasksByProject(email, projectId, tags, assignees);
         return Response.ok()
@@ -113,7 +97,6 @@ public class TaskResource {
     }
 
     @POST
-    @Path("/project/{projectId}")
     @RolesAllowed({"access_token"})
     @Operation(
             summary = "Creates a task",
@@ -132,10 +115,9 @@ public class TaskResource {
     public Response createTask(
             @Valid CreateTaskRequest createTaskRequest,
             @Context SecurityContext securityContext,
-            @PathParam("projectId") String stringProjectId
+            @PathParam("projectId") ObjectId projectId
     ) {
         String email = securityContext.getUserPrincipal().getName();
-        ObjectId projectId = new ObjectId(stringProjectId);
 
         TaskResponse taskResponse = taskService.createTask(createTaskRequest, email, projectId);
 
@@ -144,7 +126,7 @@ public class TaskResource {
                 .build();
     }
 
-    @PUT
+    @PATCH
     @Path("/{taskId}")
     @RolesAllowed({"access_token"})
     @Operation(
@@ -162,14 +144,14 @@ public class TaskResource {
     @APIResponse(responseCode = "403", description = "You are not a member of this project")
     @APIResponse(responseCode = "404", description = "Task or related project not found")
     public Response updateTask(
-            @PathParam("taskId") String stringTaskId,
+            @Valid UpdateTaskRequest updateTaskRequest,
             @Context SecurityContext securityContext,
-            @Valid UpdateTaskRequest updateTaskRequest
+            @PathParam("projectId") ObjectId projectId,
+            @PathParam("taskId") ObjectId taskId
     ) {
-        ObjectId taskId = new ObjectId(stringTaskId);
         String email = securityContext.getUserPrincipal().getName();
 
-        TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, taskId, email);
+        TaskResponse taskResponse = taskService.updateTask(updateTaskRequest, email, projectId, taskId);
         return Response.ok()
                 .entity(taskResponse)
                 .build();
@@ -193,15 +175,34 @@ public class TaskResource {
     @APIResponse(responseCode = "403", description = "You are not a member of this project")
     @APIResponse(responseCode = "404", description = "Task or related project not found")
     public Response deleteTaskById(
-            @PathParam("taskId") String stringTaskId,
-            @Context SecurityContext securityContext
+            @Context SecurityContext securityContext,
+            @PathParam("projectId") ObjectId projectId,
+            @PathParam("taskId") ObjectId taskId
     ) {
         String email = securityContext.getUserPrincipal().getName();
-        ObjectId taskId = new ObjectId(stringTaskId);
 
-        TaskResponse taskResponse = taskService.deleteTask(taskId, email);
+        taskService.deleteTask(email, projectId, taskId);
         return Response.ok()
-                .entity(taskResponse)
+                .status(Response.Status.NO_CONTENT)
                 .build();
+    }
+
+    // UTILS
+
+    private static List<String> parseCsv(String csv) {
+        List<String> values = new ArrayList<>();
+
+        if (csv == null || csv.isBlank()) {
+            return values;
+        }
+
+        for (String raw : csv.split(",")) {
+            String value = raw.trim();
+            if (!value.isEmpty()) {
+                values.add(value);
+            }
+        }
+
+        return values;
     }
 }
