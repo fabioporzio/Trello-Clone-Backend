@@ -1,6 +1,7 @@
 package com.trello.clone.data.model;
 
 import com.trello.clone.service.exception.BadRequestException;
+import com.trello.clone.utils.Labels;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import org.bson.types.ObjectId;
 
@@ -16,10 +17,10 @@ public class Project {
 
     private ObjectId id;
     private String name;
-    private List<String> phases;
+    private List<String> phases = new ArrayList<>();
     private String owner;
-    private Set<String> team;
-    private Set<String> invitedUsers;
+    private Set<String> team = new HashSet<>();
+    private Set<String> invitedUsers = new HashSet<>();
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -36,6 +37,16 @@ public class Project {
         this.updatedAt = updatedAt;
     }
 
+    public static Project create(String name, String ownerEmail) {
+        Project project = new Project();
+        project.rename(name);
+        project.owner = requireEmail(ownerEmail);
+        project.team.add(project.owner);
+        project.createdAt = Instant.now();
+        project.updatedAt = project.createdAt;
+        return project;
+    }
+
     // QUERIES
     public boolean isOwner(String email) {
         return owner != null && owner.equals(email);
@@ -49,9 +60,9 @@ public class Project {
         return invitedUsers.contains(email);
     }
 
+    public boolean hasPhase(String phase) { return phases.contains(phase); }
+
     // BEHAVIOURS
-
-
     public void rename(String newName) {
         if (newName == null || newName.isBlank()) {
             throw new BadRequestException("Project name cannot be empty");
@@ -69,16 +80,8 @@ public class Project {
      * Appends phases that are not already present.
      */
     public void addPhases(Collection<String> phasesToAdd) {
-        for (String raw : phasesToAdd) {
-            String phase = requireAndTrimPhase(raw);
-            if (indexOfPhase(phase) < 0) {
-                phases.add(phase);
-            }
-        }
-
-        // Checks if the new number of phases limit is met (max 50 phases)
-        if (phases.size() > MAX_PHASES) {
-            throw new BadRequestException("A project cannot have more than " + MAX_PHASES + " phases");
+        for (String phase : phasesToAdd) {
+            Labels.addDistinct(phases, requirePhase(phase));
         }
     }
 
@@ -87,10 +90,7 @@ public class Project {
      */
     public void removePhases(Collection<String> phasesToRemove) {
         for (String phase : phasesToRemove) {
-            int index = indexOfPhase(requireAndTrimPhase(phase));
-            if (index >= 0) {
-                phases.remove(index);
-            }
+            Labels.remove(phases, requirePhase(phase));
         }
     }
 
@@ -99,16 +99,13 @@ public class Project {
      * This prevents renaming by removing and adding to move the phase to the last position.
      */
     public void renamePhase(String oldName, String newName) {
-
-        // Checks if the old phase is actually present
-        int index = indexOfPhase(requireAndTrimPhase(oldName));
+        int index = Labels.indexOf(phases, requirePhase(oldName));
         if (index < 0) {
             throw new BadRequestException("Unknown phase: " + oldName);
         }
 
-        // Checks if there is another phase with the same name
-        String renamed = requireAndTrimPhase(newName);
-        int clash = indexOfPhase(renamed);
+        String renamed = requirePhase(newName);
+        int clash = Labels.indexOf(phases, renamed);
         if (clash >= 0 && clash != index) {
             throw new BadRequestException("A phase named " + renamed + " already exists");
         }
@@ -125,8 +122,8 @@ public class Project {
         for (String raw : newOrder) {
 
             // Check if the phase exists
-            String phase = requireAndTrimPhase(raw);
-            int index = indexOfPhase(phase);
+            String phase = requirePhase(raw);
+            int index = Labels.indexOf(phases, phase);
             if (index < 0) {
                 throw new BadRequestException("Unknown phase: " + phase);
             }
@@ -148,31 +145,8 @@ public class Project {
         this.phases = reordered;
     }
 
-    /** Phase names are compared case-insensitively but stored as typed. */
-    private int indexOfPhase(String phase) {
-        for (int i = 0; i < phases.size(); i++) {
-            if (phases.get(i).equalsIgnoreCase(phase)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * Checks if phase is empty.
-     * Trims the phase name.
-     */
-    private static String requireAndTrimPhase(String phase) {
-        if (phase == null || phase.isBlank()) {
-            throw new BadRequestException("Phase names cannot be empty");
-        }
-
-        String trimmed = phase.trim();
-        if (trimmed.length() > MAX_PHASE_LENGTH) {
-            throw new BadRequestException("Phase names cannot exceed " + MAX_PHASE_LENGTH + " characters");
-        }
-
-        return trimmed;
+    private static String requirePhase(String phase) {
+        return Labels.require(phase, MAX_PHASE_LENGTH, "Phase names");
     }
 
     public void transferOwnershipTo(String newOwner) {
@@ -238,6 +212,11 @@ public class Project {
         return email;
     }
 
+    public String canonicalPhase(String phase) {
+        int index = Labels.indexOf(phases, phase);
+        return index < 0 ? null : phases.get(index);
+    }
+
     // GETTERS AND SETTERS
 
     public ObjectId getId() {
@@ -261,7 +240,7 @@ public class Project {
     }
 
     public void setPhases(List<String> phases) {
-        this.phases = phases;
+        this.phases = phases == null ? new ArrayList<>() : new ArrayList<>(phases);
     }
 
     public String getOwner() {
@@ -277,7 +256,7 @@ public class Project {
     }
 
     public void setTeam(Set<String> team) {
-        this.team = team;
+        this.team = team == null ? new LinkedHashSet<>() : new LinkedHashSet<>(team);
     }
 
     public Set<String> getInvitedUsers() {
@@ -285,7 +264,7 @@ public class Project {
     }
 
     public void setInvitedUsers(Set<String> invitedUsers) {
-        this.invitedUsers = invitedUsers;
+        this.invitedUsers = invitedUsers == null ? new LinkedHashSet<>() : new LinkedHashSet<>(invitedUsers);
     }
 
     public Instant getCreatedAt() {

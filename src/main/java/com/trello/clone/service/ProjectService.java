@@ -2,6 +2,7 @@ package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.repository.ProjectRepository;
+import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.exception.BadRequestException;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.NotFoundException;
@@ -17,24 +18,27 @@ import org.bson.types.ObjectId;
 import java.time.Instant;
 import java.util.*;
 
+import static com.trello.clone.utils.RequestDeltas.normalizedEmails;
+import static com.trello.clone.utils.RequestDeltas.rejectOverlap;
+
 @ApplicationScoped
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
-    private final EmailUtils emailUtils;
+    private final TaskRepository taskRepository;
 
     public ProjectService(
             ProjectRepository projectRepository,
-            EmailUtils emailUtils
+             TaskRepository taskRepository
     ) {
         this.projectRepository = projectRepository;
-        this.emailUtils = emailUtils;
+        this.taskRepository = taskRepository;
     }
 
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
         List<Project> projects;
         try {
-            projects = projectRepository.findProjectsByEmail(emailUtils.normalize(email));
+            projects = projectRepository.findProjectsByEmail(EmailUtils.normalize(email));
         }
         catch (Exception e) {
             Log.error("Failed to gather projects", e);
@@ -49,7 +53,7 @@ public class ProjectService {
     }
 
     public ProjectResponse getProjectById(ObjectId projectId, String email) {
-        String actor = emailUtils.normalize(email);
+        String actor = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
         requireMember(project, actor);
         return toProjectResponse(project);
@@ -61,7 +65,7 @@ public class ProjectService {
             CreateProjectRequest request,
             String email
     ) {
-        String owner = emailUtils.normalize(email);
+        String owner = EmailUtils.normalize(email);
 
         Set<String> team =  new LinkedHashSet<>();
         team.add(owner);
@@ -83,7 +87,7 @@ public class ProjectService {
     // UPDATE
 
     public ProjectResponse updateProject(UpdateProjectRequest request, ObjectId projectId, String email) {
-        String actor = emailUtils.normalize(email);
+        String actor = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
         requireMember(project, actor);
 
@@ -109,6 +113,7 @@ public class ProjectService {
 
         if (request.getPhaseRenames() != null) {
             for (Map.Entry<String, String> rename : request.getPhaseRenames().entrySet()) {
+                taskRepository.renamePhase(projectId, rename.getKey(), rename.getValue());
                 project.renamePhase(rename.getKey(), rename.getValue());
             }
         }
@@ -119,25 +124,25 @@ public class ProjectService {
 
         if (request.getNewOwner() != null) {
             requireOwner(project, actor);
-            project.transferOwnershipTo(emailUtils.normalize(request.getNewOwner()));
+            project.transferOwnershipTo(EmailUtils.normalize(request.getNewOwner()));
         }
 
         if (isNotEmpty(request.getUsersToInvite())) {
             requireOwner(project, actor);
-            for (String invitee : normalized(request.getUsersToInvite())) {
+            for (String invitee : normalizedEmails(request.getUsersToInvite())) {
                 project.invite(invitee);
             }
         }
 
         if (isNotEmpty(request.getInvitesToRevoke())) {
             requireOwner(project, actor);
-            for (String invitee : normalized(request.getInvitesToRevoke())) {
+            for (String invitee : normalizedEmails(request.getInvitesToRevoke())) {
                 project.revokeInvite(invitee);
             }
         }
 
         if (isNotEmpty(request.getMembersToRemove())) {
-            for (String target : normalized(request.getMembersToRemove())) {
+            for (String target : normalizedEmails(request.getMembersToRemove())) {
                 removeMember(project, actor, target);
             }
         }
@@ -150,7 +155,7 @@ public class ProjectService {
     // INVITATION FLOW
 
     public ProjectResponse acceptInvite(ObjectId projectId, String email) {
-        String actor = emailUtils.normalize(email);
+        String actor = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
 
         if (!project.isInvited(actor)) {
@@ -220,6 +225,14 @@ public class ProjectService {
         }
     }
 
+    private void requireEmptyPhase(ObjectId projectId, String phase) {
+        long count = taskRepository.countByPhase(projectId, phase);
+        if (count > 0) {
+            throw new BadRequestException("Cannot remove phase '" + phase + "': "
+                    + count + " task(s) still in it. Move them first.");
+        }
+    }
+
     // PERSISTENCE
 
     private void persist(Project project) {
@@ -257,53 +270,5 @@ public class ProjectService {
                 project.getTeam(),
                 project.getInvitedUsers()
         );
-    }
-
-    /** Handles the "Add X and remove X in the same request" case. */
-    private static void rejectOverlap(Collection<String> left, Collection<String> right, String label) {
-        if (!isNotEmpty(left) || !isNotEmpty(right)) {
-            return;
-        }
-
-        List<String> conflicts = new ArrayList<>();
-
-        for (String leftValue : left) {
-            for (String rightValue : right) {
-                if (isSameValue(leftValue, rightValue)) {
-                    conflicts.add(leftValue.trim());
-                    break;
-                }
-            }
-        }
-
-        if (!conflicts.isEmpty()) {
-            throw new BadRequestException("The same " + label
-                    + " cannot be added and removed in one request: " + String.join(", ", conflicts));
-        }
-    }
-
-    private static boolean isSameValue(String first, String second) {
-        if (first == null || second == null) {
-            return false;
-        }
-
-        return first.trim().equalsIgnoreCase(second.trim());
-    }
-
-    /**
-     * Cleans up a list of emails coming from the request body: trims them,
-     * lowercases them, drops empty entries and collapses duplicates.
-     */
-    private Set<String> normalized(Collection<String> values) {
-        Set<String> result = new LinkedHashSet<>();
-
-        for (String value : values) {
-            String email = emailUtils.normalize(value);
-            if (email != null && !email.isBlank()) {
-                result.add(email);
-            }
-        }
-
-        return result;
     }
 }
