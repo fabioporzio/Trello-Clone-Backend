@@ -166,7 +166,7 @@ public class TaskResource {
     )
     @SecurityRequirement(name = "BearerAuth")
     @APIResponse(
-            responseCode = "200",
+            responseCode = "204",
             description = "Delete successful",
             content = @Content(mediaType = "application/json",
                     schema = @Schema(implementation = TaskResponse.class))
@@ -182,7 +182,7 @@ public class TaskResource {
         String email = securityContext.getUserPrincipal().getName();
 
         taskService.deleteTask(email, projectId, taskId);
-        return Response.ok()
+        return Response.noContent()
                 .status(Response.Status.NO_CONTENT)
                 .build();
     }
