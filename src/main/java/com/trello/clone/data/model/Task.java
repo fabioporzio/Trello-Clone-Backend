@@ -81,13 +81,16 @@ public class Task {
     }
 
     public void addTags(Collection<String> tagsToAdd) {
+        List<String> candidates = new ArrayList<>(tags);
         for (String tag : tagsToAdd) {
-            Labels.addDistinct(tags, requireTag(tag));
+            Labels.addDistinct(candidates, requireTag(tag));
         }
 
-        if (tags.size() > MAX_TAGS) {
+        if (candidates.size() > MAX_TAGS) {
             throw new BadRequestException("A task cannot have more than " + MAX_TAGS + " tags");
         }
+
+        this.tags = candidates;
     }
 
     public void removeTags(Collection<String> tagsToRemove) {
