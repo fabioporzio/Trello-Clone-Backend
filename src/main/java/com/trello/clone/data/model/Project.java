@@ -19,22 +19,12 @@ public class Project {
     private String name;
     private List<String> phases = new ArrayList<>();
     private String owner;
-    private Set<String> team = new HashSet<>();
-    private Set<String> invitedUsers = new HashSet<>();
+    private Set<String> team = new LinkedHashSet<>();
+    private Set<String> invitedUsers = new LinkedHashSet<>();
     private Instant createdAt;
     private Instant updatedAt;
 
     public Project() {
-    }
-
-    public Project(String name, List<String> phases, String owner, Set<String> team, Set<String> invitedUsers, Instant createdAt, Instant updatedAt) {
-        this.name = name;
-        this.phases = phases;
-        this.owner = requireEmail(owner);
-        this.team = team;
-        this.invitedUsers = invitedUsers;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
     }
 
     public static Project create(String name, String ownerEmail) {
@@ -60,7 +50,9 @@ public class Project {
         return invitedUsers.contains(email);
     }
 
-    public boolean hasPhase(String phase) { return phases.contains(phase); }
+    public boolean hasPhase(String phase) {
+        return canonicalPhase(phase) != null;
+    }
 
     // BEHAVIOURS
     public void rename(String newName) {
@@ -80,9 +72,16 @@ public class Project {
      * Appends phases that are not already present.
      */
     public void addPhases(Collection<String> phasesToAdd) {
+        List<String> candidates = new ArrayList<>(phases);
         for (String phase : phasesToAdd) {
-            Labels.addDistinct(phases, requirePhase(phase));
+            Labels.addDistinct(candidates, requirePhase(phase));
         }
+
+        if (candidates.size() > MAX_PHASES) {
+            throw new BadRequestException("A project cannot have more than " + MAX_PHASES + " phases");
+        }
+
+        this.phases = candidates;
     }
 
     /**
@@ -147,6 +146,14 @@ public class Project {
 
     private static String requirePhase(String phase) {
         return Labels.require(phase, MAX_PHASE_LENGTH, "Phase names");
+    }
+
+    public String requireExistingPhase(String phase) {
+        String canonical = canonicalPhase(requirePhase(phase));
+        if (canonical == null) {
+            throw new BadRequestException("Unknown phase: " + phase);
+        }
+        return canonical;
     }
 
     public void transferOwnershipTo(String newOwner) {

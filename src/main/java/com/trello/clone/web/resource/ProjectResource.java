@@ -4,6 +4,7 @@ import com.trello.clone.service.ProjectService;
 import com.trello.clone.web.model.project.CreateProjectRequest;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
+import jakarta.annotation.security.DenyAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -20,6 +21,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 
 import java.util.List;
 
+@DenyAll
 @Path("api/project")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -104,7 +106,7 @@ public class ProjectResource  {
                 .build();
     }
 
-    @PUT
+    @PATCH
     @Path("/{projectId}")
     @RolesAllowed({"access_token"})
     @Operation(
@@ -122,12 +124,11 @@ public class ProjectResource  {
     @APIResponse(responseCode = "401", description = "Token is expired")
     @APIResponse(responseCode = "404", description = "No project found")
     public Response updateProject(
-            @PathParam("projectId") String stringProjectId,
+            @PathParam("projectId") ObjectId projectId,
             @Context SecurityContext securityContext,
             @Valid UpdateProjectRequest updateProjectRequest
     ) {
         String email = securityContext.getUserPrincipal().getName();
-        ObjectId projectId = new ObjectId(stringProjectId);
 
         ProjectResponse projectResponse = projectService.updateProject(updateProjectRequest, projectId, email);
 
@@ -144,23 +145,16 @@ public class ProjectResource  {
             description = "Validates JWT access token and deletes a project based on given project ID."
     )
     @SecurityRequirement(name = "BearerAuth")
-    @APIResponse(
-            responseCode = "200",
-            description = "Delete successful",
-            content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = ProjectResponse.class))
-    )
+    @APIResponse(responseCode = "204", description = "Delete successful")
     @APIResponse(responseCode = "401", description = "Token is expired")
     @APIResponse(responseCode = "404", description = "No project found")
     public Response deleteProjectById(
-            @PathParam("projectId") String stringProjectId,
+            @PathParam("projectId") ObjectId projectId,
             @Context SecurityContext securityContext
     ) {
         String email = securityContext.getUserPrincipal().getName();
-        ObjectId projectId = new ObjectId(stringProjectId);
 
-        ProjectResponse projectResponse = projectService.deleteProject(projectId, email);
-        return Response.ok(projectResponse).build();
+        projectService.deleteProject(projectId, email);
+        return Response.noContent().build();
     }
 }
-

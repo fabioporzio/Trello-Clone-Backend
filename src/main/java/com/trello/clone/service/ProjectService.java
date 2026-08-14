@@ -15,7 +15,6 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.bson.types.ObjectId;
 
-import java.time.Instant;
 import java.util.*;
 
 import static com.trello.clone.utils.RequestDeltas.normalizedEmails;
@@ -67,17 +66,9 @@ public class ProjectService {
     ) {
         String owner = EmailUtils.normalize(email);
 
-        Set<String> team =  new LinkedHashSet<>();
-        team.add(owner);
-
-        Project project = new Project(
+        Project project = Project.create(
                 request.getName(),
-                new ArrayList<>(),
-                owner,
-                team,
-                new LinkedHashSet<>(),
-                Instant.now(),
-                Instant.now()
+                owner
         );
 
         persist(project);
@@ -90,6 +81,8 @@ public class ProjectService {
         String actor = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
         requireMember(project, actor);
+
+        boolean actorIsOwner = project.isOwner(actor);
 
         // Reject contradictory instructions before mutating anything, so a bad
         // request never leaves the project half-updated.
@@ -104,7 +97,13 @@ public class ProjectService {
         // Order matters: remove before add (frees a name for reuse in the same
         // call), rename before reorder (so the ordering can use the new names).
         if (isNotEmpty(request.getPhasesToRemove())) {
-            project.removePhases(request.getPhasesToRemove());
+            List<String> toRemove = new ArrayList<>();
+            for (String phase : request.getPhasesToRemove()) {
+                String canonical = project.requireExistingPhase(phase);
+                requireEmptyPhase(projectId, canonical);
+                toRemove.add(canonical);
+            }
+            project.removePhases(toRemove);
         }
 
         if (isNotEmpty(request.getPhasesToAdd())) {
@@ -113,8 +112,9 @@ public class ProjectService {
 
         if (request.getPhaseRenames() != null) {
             for (Map.Entry<String, String> rename : request.getPhaseRenames().entrySet()) {
-                taskRepository.renamePhase(projectId, rename.getKey(), rename.getValue());
-                project.renamePhase(rename.getKey(), rename.getValue());
+                String current = project.requireExistingPhase(rename.getKey());
+                taskRepository.renamePhase(projectId, current, rename.getValue().trim());
+                project.renamePhase(current, rename.getValue());
             }
         }
 
@@ -123,19 +123,19 @@ public class ProjectService {
         }
 
         if (request.getNewOwner() != null) {
-            requireOwner(project, actor);
+            requireOwner(actorIsOwner);
             project.transferOwnershipTo(EmailUtils.normalize(request.getNewOwner()));
         }
 
         if (isNotEmpty(request.getUsersToInvite())) {
-            requireOwner(project, actor);
+            requireOwner(actorIsOwner);
             for (String invitee : normalizedEmails(request.getUsersToInvite())) {
                 project.invite(invitee);
             }
         }
 
         if (isNotEmpty(request.getInvitesToRevoke())) {
-            requireOwner(project, actor);
+            requireOwner(actorIsOwner);
             for (String invitee : normalizedEmails(request.getInvitesToRevoke())) {
                 project.revokeInvite(invitee);
             }
@@ -143,7 +143,7 @@ public class ProjectService {
 
         if (isNotEmpty(request.getMembersToRemove())) {
             for (String target : normalizedEmails(request.getMembersToRemove())) {
-                removeMember(project, actor, target);
+                removeMember(project, actor, target, actorIsOwner);
             }
         }
 
@@ -168,37 +168,37 @@ public class ProjectService {
         return toProjectResponse(project);
     }
 
-    public ProjectResponse deleteProject(ObjectId projectId, String email) {
-
-        Project project = projectRepository.findById(projectId);
-        if (project == null) {
-            throw new NotFoundException("Project with ID " + projectId + " not found");
-        }
-
-        if (!project.getOwner().equals(email)) {
-            throw new UnauthorizedException("You are not allowed to delete this project");
-        }
+    public void deleteProject(ObjectId projectId, String email) {
+        String normalizedEmail = EmailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireOwner(project.isOwner(normalizedEmail));
 
         try {
+            long deleted = taskRepository.delete("projectId", projectId);
+            Log.infof("Deleted %d tasks", deleted);
             projectRepository.delete(project);
         }
         catch (Exception e) {
-            Log.error("Failed to delete project: " + e);
+            Log.errorf(e, "Failed to delete project %s", project.getId());
             throw new GenericException("Failed to delete project due to server error");
         }
-
-        return toProjectResponse(project);
     }
 
     // RULES
+
+    private void requireOwner(boolean actorIsOwner) {
+        if (!actorIsOwner) {
+            throw new UnauthorizedException("Only the project owner can perform this operation");
+        }
+    }
 
     /**
      * Removing another member requires ownership; removing yourself is always
      * allowed. The "owner cannot be removed" invariant lives on the entity.
      */
-    private void removeMember(Project project, String actor, String target) {
+    private void removeMember(Project project, String actor, String target, boolean actorIsOwner) {
         if (!actor.equals(target)) {
-            requireOwner(project, actor);
+            requireOwner(actorIsOwner);
         }
         project.removeMember(target);
     }
@@ -216,12 +216,6 @@ public class ProjectService {
     private void requireMember(Project project, String actor) {
         if (!project.isMember(actor)) {
             throw new NotFoundException("Project with ID " + project.getId() + " not found");
-        }
-    }
-
-    private void requireOwner(Project project, String actor) {
-        if (!project.isOwner(actor)) {
-            throw new UnauthorizedException("Only the project owner can perform this operation");
         }
     }
 
@@ -265,10 +259,10 @@ public class ProjectService {
         return new ProjectResponse(
                 project.getId(),
                 project.getName(),
-                project.getPhases(),
+                List.copyOf(project.getPhases()),
                 project.getOwner(),
-                project.getTeam(),
-                project.getInvitedUsers()
+                new LinkedHashSet<>(project.getTeam()),
+                new LinkedHashSet<>(project.getInvitedUsers())
         );
     }
 }
