@@ -1,3 +1,5 @@
+package authentication;
+
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -90,5 +92,16 @@ public class LoginThrottleTest {
         // if reset worked, we get two errors with 401 error code
         attemptLogin(email, "wrong").statusCode(401);
         attemptLogin(email, "wrong").statusCode(401);
+    }
+
+    @Test
+    void throttleSharesTheBucketAcrossCasings() {
+        String email = uniqueEmail();
+
+        attemptLogin(email, "wrong").statusCode(401);
+        attemptLogin(email.toUpperCase(), "wrong").statusCode(401);
+        attemptLogin(email, "wrong").statusCode(401);
+
+        attemptLogin(email.toUpperCase(), "wrong").statusCode(429);
     }
 }

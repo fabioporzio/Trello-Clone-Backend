@@ -9,6 +9,8 @@ import com.trello.clone.web.model.user.UserResponse;
 import io.quarkiverse.bucket4j.runtime.RateLimited;
 import io.quarkiverse.bucket4j.runtime.resolver.IpResolver;
 import io.smallrye.jwt.build.Jwt;
+import jakarta.annotation.security.DenyAll;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -19,7 +21,6 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import org.bson.types.ObjectId;
 import org.eclipse.microprofile.jwt.Claims;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
@@ -33,6 +34,7 @@ import java.time.Instant;
 import java.util.Set;
 
 @Path("api/auth")
+@DenyAll
 @Tag(name = "Authentication", description = "Login and token refresh operations")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
@@ -48,6 +50,7 @@ public class AuthenticationResource {
 
     @POST
     @Path("/login")
+    @PermitAll
     @RateLimited(bucket = "login", identityResolver = IpResolver.class)
     @Operation(
             summary = "Authenticate a user",
@@ -95,28 +98,26 @@ public class AuthenticationResource {
     }
 
     private String getAccessToken(UserResponse user) {
-        ObjectId id = userService.getIdByUser(user);
         return Jwt
                 .issuer("trello-clone-jwt")
                 .subject(user.getEmail())
                 .upn(user.getEmail())
                 .groups(Set.of("access_token"))
-                .claim(Claims.nickname.name(), user.getEmail())
-                .claim("id", id.toHexString())
+                .claim(Claims.nickname.name(), user.getUsername())
+                .claim("id", user.getObjectId())
                 .expiresIn(Duration.ofMinutes(10))
                 .issuedAt(Instant.now())
                 .sign();
     }
 
     private String getRefreshToken(UserResponse user) {
-        ObjectId id = userService.getIdByUser(user);
         return Jwt
                 .issuer("trello-clone-jwt")
                 .subject(user.getEmail())
                 .upn(user.getEmail())
                 .groups(Set.of("refresh_token"))
-                .claim(Claims.nickname.name(), user.getEmail())
-                .claim("id", id.toHexString())
+                .claim(Claims.nickname.name(), user.getUsername())
+                .claim("id", user.getObjectId())
                 .expiresIn(Duration.ofHours(1))
                 .issuedAt(Instant.now())
                 .sign();

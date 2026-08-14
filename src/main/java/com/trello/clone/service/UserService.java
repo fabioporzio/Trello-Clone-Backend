@@ -9,8 +9,8 @@ import com.trello.clone.service.exception.*;
 import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.user.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -136,18 +136,6 @@ public class UserService {
         return toUserResponse(userCredentials);
     }
 
-    public ObjectId getIdByUser(UserResponse userResponse) {
-        String normalizedEmail = EmailUtils.normalize(userResponse.getEmail());
-        User user =  userRepository.findByEmail(normalizedEmail);
-
-        if (user != null) {
-            return user.getId();
-        }
-        else {
-            return null;
-        }
-    }
-
     public UserResponse getUserByEmail(String email) {
         String normalizedEmail = EmailUtils.normalize(email);
         User user;
@@ -172,13 +160,14 @@ public class UserService {
 
         List<UserSummaryResponse> result = new ArrayList<>();
         for (User user : users) {
-            result.add(new UserSummaryResponse(user.getId().toString(), user.getUsername()));
+            result.add(new UserSummaryResponse(user.getId().toHexString(), user.getUsername()));
         }
         return result;
     }
 
     private static UserResponse toUserResponse(User user) {
         return new UserResponse(
+                user.getId().toHexString(),
                 user.getEmail(),
                 user.getUsername()
         );

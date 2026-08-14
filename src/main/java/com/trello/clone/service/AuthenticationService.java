@@ -4,6 +4,7 @@ import com.trello.clone.data.model.User;
 import com.trello.clone.data.repository.AuthenticationRepository;
 import com.trello.clone.service.exception.InvalidCredentialsException;
 import com.trello.clone.service.exception.TooManyAttemptsException;
+import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.user.UserResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -22,12 +23,13 @@ public class AuthenticationService {
     }
 
     public UserResponse authenticate(String email, String password) {
-        long cooldown = loginThrottleService.checkCooldown(email);
+        String normalizedEmail = EmailUtils.normalize(email);
+        long cooldown = loginThrottleService.checkCooldown(normalizedEmail);
         if (cooldown > 0) {
             throw new TooManyAttemptsException(cooldown);
         }
 
-        User user = authenticationRepository.authenticate(email, password);
+        User user = authenticationRepository.authenticate(normalizedEmail, password);
         if (user == null) {
             loginThrottleService.registerFailure(email);
             throw new InvalidCredentialsException("Email or password are incorrect");
@@ -39,6 +41,7 @@ public class AuthenticationService {
 
     private static UserResponse toUserResponse(User user) {
         return new UserResponse(
+                user.getId().toHexString(),
                 user.getEmail(),
                 user.getUsername()
         );
