@@ -15,7 +15,7 @@ import java.util.Set;
 public class TaskRepository implements PanacheMongoRepository<Task> {
 
     public Task findByIdAndProject(ObjectId taskId, ObjectId projectId) {
-        return find("id = ?1 and projectId = ?2", taskId, projectId).firstResult();
+        return find("{'_id': ?1, 'projectId': ?2}", taskId, projectId).firstResult();
     }
 
     public long renamePhase(ObjectId projectId, String oldPhase, String newPhase) {

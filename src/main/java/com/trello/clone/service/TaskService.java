@@ -8,13 +8,13 @@ import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.exception.BadRequestException;
 import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.UnauthorizedException;
+import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.NotFoundException;
 import org.bson.types.ObjectId;
 
 import java.util.*;

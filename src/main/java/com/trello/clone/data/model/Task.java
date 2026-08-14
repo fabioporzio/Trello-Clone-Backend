@@ -130,7 +130,7 @@ public class Task {
         return id;
     }
 
-    private void setId(ObjectId id) {
+    public  void setId(ObjectId id) {
         this.id = id;
     }
 
@@ -138,7 +138,7 @@ public class Task {
         return title;
     }
 
-    private void setTitle(String title) {
+    public void setTitle(String title) {
         this.title = title;
     }
 
@@ -146,7 +146,7 @@ public class Task {
         return description;
     }
 
-    private void setDescription(String description) {
+    public void setDescription(String description) {
         this.description = description;
     }
 
@@ -162,7 +162,7 @@ public class Task {
         return phase;
     }
 
-    private void setPhase(String phase) {
+    public void setPhase(String phase) {
         this.phase = phase;
     }
 
@@ -170,7 +170,7 @@ public class Task {
         return tags;
     }
 
-    private void setTags(List<String> tags) {
+    public void setTags(List<String> tags) {
         this.tags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
     }
 
@@ -178,7 +178,7 @@ public class Task {
         return assignees;
     }
 
-    private void setAssignees(Set<String> assignees) {
+    public void setAssignees(Set<String> assignees) {
         this.assignees = assignees == null ? new LinkedHashSet<>() : new LinkedHashSet<>(assignees);
     }
 
@@ -186,7 +186,7 @@ public class Task {
         return endDate;
     }
 
-    private void setEndDate(LocalDate endDate) {
+    public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
     }
 

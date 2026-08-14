@@ -45,6 +45,10 @@ public final class RequestDeltas {
     public static Set<String> normalizedEmails(Collection<String> values) {
         Set<String> result = new LinkedHashSet<>();
 
+        if (values == null) {
+            return result;
+        }
+
         for (String value : values) {
             String email = EmailUtils.normalize(value);
             if (email != null && !email.isBlank()) {
