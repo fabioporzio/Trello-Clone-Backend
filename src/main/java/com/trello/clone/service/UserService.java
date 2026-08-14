@@ -9,7 +9,6 @@ import com.trello.clone.service.exception.*;
 import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.user.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
-import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
