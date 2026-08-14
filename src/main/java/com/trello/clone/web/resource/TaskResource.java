@@ -165,12 +165,7 @@ public class TaskResource {
             description = "Validates JWT access token and deletes a task."
     )
     @SecurityRequirement(name = "BearerAuth")
-    @APIResponse(
-            responseCode = "204",
-            description = "Delete successful",
-            content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = TaskResponse.class))
-    )
+    @APIResponse(responseCode = "204", description = "Delete successful")
     @APIResponse(responseCode = "401", description = "Token is expired")
     @APIResponse(responseCode = "403", description = "You are not a member of this project")
     @APIResponse(responseCode = "404", description = "Task or related project not found")
