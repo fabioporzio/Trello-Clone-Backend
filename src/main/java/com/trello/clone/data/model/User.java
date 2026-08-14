@@ -8,7 +8,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @MongoEntity(collection = "users")
 public class User {
 
-    public ObjectId id;
+    private ObjectId id;
     private String email;
     private String username;
 

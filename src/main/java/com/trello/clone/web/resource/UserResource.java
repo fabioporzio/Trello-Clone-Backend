@@ -76,7 +76,7 @@ public class UserResource {
     public Response searchUsers(
             @QueryParam("searchTerm")
             @NotBlank(message = "Search term is required")
-            @Size(min = 2, message = "Search term must be at least 2 characters")
+            @Size(min = 3, message = "Search term must be at least 3 characters")
             String searchTerm) {
         List<UserSummaryResponse> results = userService.searchUsers(searchTerm);
         return Response.ok(results).build();
@@ -103,7 +103,7 @@ public class UserResource {
                 .build();
     }
 
-    @PUT
+    @PATCH
     @Path("/update-email")
     @RolesAllowed({"access_token"})
     @Operation(

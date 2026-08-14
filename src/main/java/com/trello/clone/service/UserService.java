@@ -1,9 +1,12 @@
 package com.trello.clone.service;
 
+import com.mongodb.ErrorCategory;
+import com.mongodb.MongoWriteException;
 import com.trello.clone.data.model.User;
 import com.trello.clone.data.repository.AuthenticationRepository;
 import com.trello.clone.data.repository.UserRepository;
 import com.trello.clone.service.exception.*;
+import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.user.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,27 +30,33 @@ public class UserService {
     }
 
     public UserResponse registerUser(CreateUserRequest createUserRequest) {
-        boolean exists = userRepository.count("email", createUserRequest.getEmail()) > 0;
+        String normalizedEmail = EmailUtils.normalize(createUserRequest.getEmail());
+        boolean exists = userRepository.count("email", normalizedEmail) > 0;
         if (exists) {
             throw new UserAlreadyExistsException("A user with this email already exists");
         }
 
+        String hashedPassword = BcryptUtil.bcryptHash(createUserRequest.getPassword());
+        User user = new User(normalizedEmail, createUserRequest.getUsername(), hashedPassword);
         try {
-            String hashedPassword = BcryptUtil.bcryptHash(createUserRequest.getPassword());
-
-            User user = new User(createUserRequest.getEmail(), createUserRequest.getUsername(), hashedPassword);
             userRepository.persist(user);
-
-            return toUserResponse(user);
         }
-        catch (Exception e) {
+        catch (MongoWriteException e) {
+            if (e.getError().getCategory() == ErrorCategory.DUPLICATE_KEY) {
+                throw new UserAlreadyExistsException("A user with this email already exists");
+            }
             throw new GenericException("Failed to register user due to server error");
         }
+
+        return toUserResponse(user);
     }
 
+    // TODO User userId as user identifier instead of the email or apply cascade logics (update email, update project members, update task assignees, invalidate token)
     public UserResponse updateUserEmail(UpdateUserEmailRequest request, String email) {
+        String normalizedCurrentEmail = EmailUtils.normalize(email);
+        String normalizedNewEmail = EmailUtils.normalize(request.getNewEmail());
         User user = authenticationRepository.authenticate(
-                email,
+                normalizedCurrentEmail,
                 request.getPassword()
         );
 
@@ -55,16 +64,16 @@ public class UserService {
             throw new InvalidCredentialsException("Email and/or password are incorrect");
         }
 
-        if (user.getEmail().equals(request.getNewEmail())) {
+        if (user.getEmail().equals(normalizedNewEmail)) {
             throw new BadRequestException("New email cannot be the same as the current one");
         }
 
-        boolean exists = userRepository.count("email", request.getNewEmail()) > 0;
+        boolean exists = userRepository.count("email", normalizedNewEmail) > 0;
         if (exists) {
             throw new EmailAlreadyUsedException("The provided new email is already used by another account");
         }
 
-        user.setEmail(request.getNewEmail());
+        user.setEmail(normalizedNewEmail);
 
         try {
             userRepository.update(user);
@@ -78,8 +87,8 @@ public class UserService {
 
 
     public UserResponse updateUserUsername(UpdateUserUsernameRequest request, String email) {
-
-        User user = authenticationRepository.authenticate(email, request.getPassword());
+        String normalizedEmail = EmailUtils.normalize(email);
+        User user = authenticationRepository.authenticate(normalizedEmail, request.getPassword());
 
         if (user == null) {
             throw new InvalidCredentialsException("Email or password are incorrect");
@@ -101,13 +110,18 @@ public class UserService {
     }
 
     public UserResponse updateUserPassword(UpdateUserPasswordRequest request, String email) {
+        String normalizedEmail = EmailUtils.normalize(email);
         User userCredentials = authenticationRepository.authenticate(
-                email,
+                normalizedEmail,
                 request.getCurrentPassword()
         );
 
         if (userCredentials == null) {
             throw new InvalidCredentialsException("Email or password are incorrect");
+        }
+
+        if (BcryptUtil.matches(request.getNewPassword(), userCredentials.getPassword())) {
+            throw new BadRequestException("The new password cannot be the same as the current one");
         }
 
         String newHashedPassword = BcryptUtil.bcryptHash(request.getNewPassword());
@@ -123,7 +137,8 @@ public class UserService {
     }
 
     public ObjectId getIdByUser(UserResponse userResponse) {
-        User user =  userRepository.findByEmail(userResponse.getEmail());
+        String normalizedEmail = EmailUtils.normalize(userResponse.getEmail());
+        User user =  userRepository.findByEmail(normalizedEmail);
 
         if (user != null) {
             return user.getId();
@@ -134,9 +149,10 @@ public class UserService {
     }
 
     public UserResponse getUserByEmail(String email) {
+        String normalizedEmail = EmailUtils.normalize(email);
         User user;
         try {
-            user = userRepository.findByEmail(email);
+            user = userRepository.findByEmail(normalizedEmail);
         }
         catch (Exception e) {
             throw new GenericException("Failed to retrieve user due to server error");
@@ -146,7 +162,7 @@ public class UserService {
             return toUserResponse(user);
         }
         else {
-            throw new UnauthorizedException("Unable to retrieve user. Please verify email and password");
+            throw new NotFoundException("Unable to find user with the given email");
         }
     }
 
@@ -156,7 +172,7 @@ public class UserService {
 
         List<UserSummaryResponse> result = new ArrayList<>();
         for (User user : users) {
-            result.add(new UserSummaryResponse(user.id.toString(), user.getUsername()));
+            result.add(new UserSummaryResponse(user.getId().toString(), user.getUsername()));
         }
         return result;
     }
