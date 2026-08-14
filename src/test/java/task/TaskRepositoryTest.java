@@ -1,3 +1,5 @@
+package task;
+
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.TaskRepository;
 import io.quarkus.test.junit.QuarkusTest;

@@ -1,3 +1,5 @@
+package task;
+
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.DeadlineRepository;
@@ -10,7 +12,6 @@ import com.trello.clone.service.exception.UnauthorizedException;
 import com.trello.clone.web.model.task.CreateTaskRequest;
 import com.trello.clone.web.model.task.TaskResponse;
 import com.trello.clone.web.model.task.UpdateTaskRequest;
-import io.quarkus.test.junit.QuarkusTest;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
