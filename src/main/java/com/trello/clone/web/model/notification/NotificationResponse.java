@@ -1,13 +1,29 @@
 package com.trello.clone.web.model.notification;
 
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+@Schema(description = "Notification's details issued after JWT access token validation")
 public class NotificationResponse {
 
+    @Schema(description = "Notification Id")
     private String id;
+
+    @Schema(description = "Notification Receiver")
     private String receiver;
+
+    @Schema(description = "Notification task or project ObjectId")
     private String taskOrProjectId;
+
+    @Schema(description = "Notification category (project or task)")
     private String category;
+
+    @Schema(description = "Notification sender")
     private String sender;
+
+    @Schema(description = "Notification issued time")
     private String issuedAt;
+
+    @Schema(description = "Notification content message")
     private String content;
 
     public NotificationResponse(String id, String receiver, String taskOrProjectId, String category, String sender, String issuedAt, String content) {
