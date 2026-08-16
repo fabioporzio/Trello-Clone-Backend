@@ -2,6 +2,7 @@ package com.trello.clone.web.resource;
 
 import com.trello.clone.service.ProjectService;
 import com.trello.clone.web.model.project.CreateProjectRequest;
+import com.trello.clone.web.model.project.ProjectInvitationResponse;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
 import jakarta.annotation.security.DenyAll;
@@ -32,6 +33,8 @@ public class ProjectResource  {
     public ProjectResource(ProjectService projectService) {
         this.projectService = projectService;
     }
+
+    // PROJECT ENDPOINTS
 
     @GET
     @RolesAllowed({"access_token"})
@@ -155,6 +158,67 @@ public class ProjectResource  {
         String email = securityContext.getUserPrincipal().getName();
 
         projectService.deleteProject(projectId, email);
+        return Response.noContent().build();
+    }
+
+    // INVITE ENDPOINTS
+
+    @GET
+    @Path("/invitations")
+    @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Lists pending project invitations",
+            description = "Returns the projects the authenticated user has been invited to but has not joined yet."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(responseCode = "200", description = "Retrieval successful",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ProjectInvitationResponse.class)))
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    public Response getPendingInvitations(@Context SecurityContext securityContext) {
+        String email = securityContext.getUserPrincipal().getName();
+        return Response.ok(projectService.getPendingInvitations(email)).build();
+    }
+
+    @POST
+    @Path("/{projectId}/invitation/accept")
+    @Consumes(MediaType.WILDCARD)
+    @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Accepts a project invitation",
+            description = "Moves the authenticated user from the invited list into the project team."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(responseCode = "200", description = "Invitation accepted",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ProjectResponse.class)))
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "404", description = "No pending invitation for this project")
+    public Response acceptInvitation(
+            @PathParam("projectId") ObjectId projectId,
+            @Context SecurityContext securityContext
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+        return Response.ok(projectService.acceptInvite(projectId, email)).build();
+    }
+
+    @DELETE
+    @Path("/{projectId}/invitation")
+    @RolesAllowed({"access_token"})
+    @Operation(
+            summary = "Declines a project invitation",
+            description = "Removes the authenticated user from the invited list without joining."
+    )
+    @SecurityRequirement(name = "BearerAuth")
+    @APIResponse(responseCode = "204", description = "Invitation declined")
+    @APIResponse(responseCode = "401", description = "Token is expired")
+    @APIResponse(responseCode = "404", description = "No pending invitation for this project")
+    public Response declineInvitation(
+            @PathParam("projectId") ObjectId projectId,
+            @Context SecurityContext securityContext
+    ) {
+        String email = securityContext.getUserPrincipal().getName();
+        projectService.declineInvite(projectId, email);
         return Response.noContent().build();
     }
 }

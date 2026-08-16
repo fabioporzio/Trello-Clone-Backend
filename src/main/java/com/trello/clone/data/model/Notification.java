@@ -1,10 +1,15 @@
 package com.trello.clone.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public class Notification {
+
+    @JsonIgnore
+    private String id;
 
     private String receiver;
     private String category;
-    private String taskOrProjectId;
+    private String projectOrTaskId;
     private String sender;
     private String issuedAt;
     private String content;
@@ -12,13 +17,21 @@ public class Notification {
     public Notification() {
     }
 
-    public Notification(String receiver, String category, String taskOrProjectId, String sender, String issuedAt, String content) {
+    public Notification(String receiver, String category, String projectOrTaskId, String sender, String issuedAt, String content) {
         this.receiver = receiver;
         this.category = category;
-        this.taskOrProjectId = taskOrProjectId;
+        this.projectOrTaskId = projectOrTaskId;
         this.sender = sender;
         this.issuedAt = issuedAt;
         this.content = content;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getReceiver() {
@@ -37,12 +50,12 @@ public class Notification {
         this.category = category;
     }
 
-    public String getTaskOrProjectId() {
-        return taskOrProjectId;
+    public String getProjectOrTaskId() {
+        return projectOrTaskId;
     }
 
-    public void setTaskOrProjectId(String taskOrProjectId) {
-        this.taskOrProjectId = taskOrProjectId;
+    public void setProjectOrTaskId(String projectOrTaskId) {
+        this.projectOrTaskId = projectOrTaskId;
     }
 
     public String getSender() {

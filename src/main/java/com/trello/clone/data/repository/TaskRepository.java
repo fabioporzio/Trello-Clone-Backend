@@ -27,6 +27,10 @@ public class TaskRepository implements PanacheMongoRepository<Task> {
         return count("projectId = ?1 and phase = ?2", projectId, phase);
     }
 
+    public void deleteByProject(ObjectId projectId) {
+        delete("projectId = ?1", projectId);
+    }
+
     public List<Task> findDueBy(LocalDate date) {
         return list("{'endDate': {'$lte': ?1}, 'completed': false, 'notifiedAt': null}", date);
     }

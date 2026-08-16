@@ -1,6 +1,8 @@
 package com.trello.clone.service;
 
 import com.trello.clone.data.model.Project;
+import com.trello.clone.data.model.Task;
+import com.trello.clone.data.repository.NotificationRepository;
 import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.exception.BadRequestException;
@@ -9,6 +11,7 @@ import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.service.exception.UnauthorizedException;
 import com.trello.clone.utils.EmailUtils;
 import com.trello.clone.web.model.project.CreateProjectRequest;
+import com.trello.clone.web.model.project.ProjectInvitationResponse;
 import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
 import io.quarkus.logging.Log;
@@ -25,13 +28,16 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
+    private final NotificationRepository notificationRepository;
 
     public ProjectService(
             ProjectRepository projectRepository,
-             TaskRepository taskRepository
+            TaskRepository taskRepository,
+            NotificationRepository notificationRepository
     ) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     public List<ProjectResponse> getAllProjectsByUserEmail(String email) {
@@ -127,10 +133,15 @@ public class ProjectService {
             project.transferOwnershipTo(EmailUtils.normalize(request.getNewOwner()));
         }
 
+        List<String> justInvited = new ArrayList<>();
+        List<String> justRevoked = new ArrayList<>();
+        List<String> justRemoved = new ArrayList<>();
+
         if (isNotEmpty(request.getUsersToInvite())) {
             requireOwner(actorIsOwner);
             for (String invitee : normalizedEmails(request.getUsersToInvite())) {
                 project.invite(invitee);
+                justInvited.add(invitee);
             }
         }
 
@@ -138,21 +149,131 @@ public class ProjectService {
             requireOwner(actorIsOwner);
             for (String invitee : normalizedEmails(request.getInvitesToRevoke())) {
                 project.revokeInvite(invitee);
+                justRevoked.add(invitee);
             }
         }
 
         if (isNotEmpty(request.getMembersToRemove())) {
             for (String target : normalizedEmails(request.getMembersToRemove())) {
                 removeMember(project, actor, target, actorIsOwner);
+                justRemoved.add(target);
             }
         }
 
         project.touch();
         update(project);
+        notifyInvites(project, actor, justInvited, justRevoked, justRemoved);
+
         return toProjectResponse(project);
     }
 
-    // INVITATION FLOW
+    // DELETE
+
+    public void deleteProject(ObjectId projectId, String email) {
+        String normalizedEmail = EmailUtils.normalize(email);
+        Project project = requireProject(projectId);
+        requireOwner(project.isOwner(normalizedEmail));
+
+        List<Task> tasks = taskRepository.list("projectId", projectId);
+
+        try {
+            taskRepository.deleteByProject(projectId);
+            projectRepository.delete(project);
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Failed to delete project %s", projectId);
+            throw new GenericException("Failed to delete project due to server error");
+        }
+
+        cleanUpNotifications(project, tasks);
+    }
+
+    // NOTIFICATIONS MANAGEMENT
+
+    private void notifyInvites(
+            Project project,
+            String actor,
+            List<String> invited,
+            List<String> revoked,
+            List<String> removed
+    ) {
+        if (invited.isEmpty() && revoked.isEmpty()) {
+            return;
+        }
+
+        String projectId = project.getId().toHexString();
+        for (String invitee : invited) {
+            try {
+                notificationRepository.addProjectInvite(invitee, project, actor);
+            } catch (Exception e) {
+                Log.errorf(e, "Invitation was saved but no notification has been sent to %s", invitee);
+            }
+        }
+
+        for (String invitee : revoked) {
+            try {
+                notificationRepository.removeProjectInvite(invitee, projectId);
+            } catch (Exception e) {
+                Log.errorf(e, "Invitation was revoked but its notification was not removed for %s", invitee);
+            }
+        }
+
+        for (String invitee : removed) {
+            try {
+                notificationRepository.removeProjectInvite(invitee, projectId);
+            } catch (Exception e) {
+                Log.errorf(e, "Invitation was removed but no notification has been sent to %s", invitee);
+            }
+        }
+    }
+
+    private void cleanUpNotifications(Project project, List<Task> tasks) {
+        String projectId = project.getId().toHexString();
+
+        try {
+            Set<String> everyone = new LinkedHashSet<>(project.getTeam());
+            everyone.addAll(project.getInvitedUsers());
+
+            for (String user : everyone) {
+                notificationRepository.removeProjectInvite(user, projectId);
+            }
+
+            for (Task task : tasks) {
+                String taskId = task.getId().toHexString();
+                for (String assignee : task.getAssignees()) {
+                    notificationRepository.removeTaskAssignment(assignee, taskId);
+                }
+            }
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Project %s deleted but its notifications were not cleaned up", projectId);
+        }
+    }
+
+    // INVITATION MANAGEMENT
+
+    public List<ProjectInvitationResponse> getPendingInvitations(String email) {
+        String actor = EmailUtils.normalize(email);
+
+        List<Project> projects;
+        try {
+            projects = projectRepository.findByPendingInvite(actor);
+        }
+        catch (Exception e) {
+            Log.error("Failed to gather pending invitations", e);
+            throw new GenericException("Failed to gather invitations due to server error");
+        }
+
+        List<ProjectInvitationResponse> responses = new ArrayList<>(projects.size());
+        for (Project project : projects) {
+            responses.add(new ProjectInvitationResponse(
+                    project.getId().toHexString(),
+                    project.getName(),
+                    project.getOwner()
+            ));
+        }
+        return responses;
+    }
 
     public ProjectResponse acceptInvite(ObjectId projectId, String email) {
         String actor = EmailUtils.normalize(email);
@@ -165,22 +286,34 @@ public class ProjectService {
         project.acceptInvite(actor);
         project.touch();
         update(project);
+
+        try {
+            notificationRepository.removeProjectInvite(actor, projectId.toHexString());
+        }
+        catch (Exception e) {
+            Log.errorf(e, "Invite notification was not removed for user %s", actor);
+        }
+
         return toProjectResponse(project);
     }
 
-    public void deleteProject(ObjectId projectId, String email) {
-        String normalizedEmail = EmailUtils.normalize(email);
+    public void declineInvite(ObjectId projectId, String email) {
+        String actor = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
-        requireOwner(project.isOwner(normalizedEmail));
+
+        if (!project.isInvited(actor)) {
+            throw new NotFoundException("No pending invitation for this project");
+        }
+
+        project.revokeInvite(actor);
+        project.touch();
+        update(project);
 
         try {
-            long deleted = taskRepository.delete("projectId", projectId);
-            Log.infof("Deleted %d tasks", deleted);
-            projectRepository.delete(project);
+            notificationRepository.removeProjectInvite(actor, projectId.toHexString());
         }
         catch (Exception e) {
-            Log.errorf(e, "Failed to delete project %s", project.getId());
-            throw new GenericException("Failed to delete project due to server error");
+            Log.errorf(e, "Invite declined but its notification was not removed for %s", actor);
         }
     }
 

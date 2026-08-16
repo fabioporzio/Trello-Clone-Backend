@@ -41,6 +41,6 @@ public class RedisSubscriber {
         String stringTaskId = splitMessage[3];
         ObjectId taskId = new ObjectId(stringTaskId);
         Task task = taskRepository.findById(taskId);
-        notificationRepository.addDeadlineNotification(task);
+        //notificationRepository.addDeadlineNotification(task);
     }
 }

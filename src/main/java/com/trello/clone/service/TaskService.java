@@ -3,6 +3,7 @@ package com.trello.clone.service;
 import com.trello.clone.data.model.Project;
 import com.trello.clone.data.model.Task;
 import com.trello.clone.data.repository.DeadlineRepository;
+import com.trello.clone.data.repository.NotificationRepository;
 import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.exception.BadRequestException;
@@ -26,13 +27,20 @@ import static com.trello.clone.utils.RequestDeltas.rejectOverlap;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final DeadlineRepository deadlineRepository;
     private final ProjectRepository projectRepository;
+    private final NotificationRepository notificationRepository;
+    private final DeadlineRepository deadlineRepository;
 
-    public TaskService(TaskRepository taskRepository, DeadlineRepository deadlineRepository, ProjectRepository projectRepository) {
+    public TaskService(
+            TaskRepository taskRepository,
+            ProjectRepository projectRepository,
+            NotificationRepository notificationRepository,
+            DeadlineRepository deadlineRepository
+    ) {
         this.taskRepository = taskRepository;
-        this.deadlineRepository = deadlineRepository;
         this.projectRepository = projectRepository;
+        this.notificationRepository = notificationRepository;
+        this.deadlineRepository = deadlineRepository;
     }
 
     public TaskResponse getTaskById(String email, ObjectId  projectId, ObjectId taskId) {
@@ -140,6 +148,9 @@ public class TaskService {
             }
         }
 
+        List<String> justAssigned = new ArrayList<>();
+        List<String> justUnassigned = new ArrayList<>();
+
         if (isNotEmpty(request.getAssigneesToAdd())) {
             Set<String> toAssign = normalizedEmails(request.getAssigneesToAdd());
             for (String assignee : toAssign) {
@@ -148,11 +159,13 @@ public class TaskService {
                 }
             }
             task.assign(toAssign);
+            justAssigned.addAll(toAssign);
         }
 
         if (isNotEmpty(request.getAssigneesToRemove())) {
             Set<String> toUnassign = normalizedEmails(request.getAssigneesToRemove());
             task.unassign(toUnassign);
+            justUnassigned.addAll(toUnassign);
         }
 
         if (request.getDescription() != null) {
@@ -172,6 +185,7 @@ public class TaskService {
         }
 
         update(task);
+        notifyAssignments(task, requestSender, justAssigned, justUnassigned);
 
         if (request.getEndDate() != null) {
             boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
@@ -183,16 +197,15 @@ public class TaskService {
         return toTaskResponse(task);
     }
 
-    public void deleteTask(
-            String email,
-            ObjectId projectId,
-            ObjectId taskId
-    ) {
-        String requestSender =  EmailUtils.normalize(email);
+    public void deleteTask(String email, ObjectId projectId, ObjectId taskId) {
+        String requestSender = EmailUtils.normalize(email);
         Project project = requireProject(projectId);
         requireMember(project, requestSender);
         Task task = requireTask(taskId, projectId);
         requireTaskDeleter(project, task, requestSender);
+
+        Set<String> assignees = new LinkedHashSet<>(task.getAssignees());
+        String hexTaskId = task.getId().toHexString();
 
         try {
             taskRepository.delete(task);
@@ -200,6 +213,44 @@ public class TaskService {
         catch (Exception e) {
             Log.errorf(e, "Failed to delete task '%s'", task.getTitle());
             throw new GenericException("Failed to delete task due to server error");
+        }
+
+        for (String assignee : assignees) {
+            try {
+                notificationRepository.removeTaskAssignment(assignee, hexTaskId);
+            }
+            catch (Exception e) {
+                Log.errorf(e, "Task deleted but its notification was not removed for %s", assignee);
+            }
+        }
+    }
+
+    // TASK ASSIGNMENT NOTIFICATION FLOW
+
+    private void notifyAssignments(Task task, String actor, List<String> assigneesToAdd, List<String> assigneesToRemove) {
+        if (assigneesToAdd.isEmpty() && assigneesToRemove.isEmpty()) {
+            return;
+        }
+
+        String taskId = task.getId().toHexString();
+
+        for (String assignee : assigneesToAdd) {
+            if (!assignee.equals(actor)) {
+                try {
+                    notificationRepository.addTaskAssignment(assignee, task, actor);
+                }
+                catch (Exception e) {
+                    Log.errorf(e, "Task assignment was revoked but no notification has been sent to %s", assignee);
+                }
+            }
+        }
+
+        for (String invitee : assigneesToRemove) {
+            try {
+                notificationRepository.removeTaskAssignment(invitee, taskId);
+            } catch (Exception e) {
+                Log.errorf(e, "Task assignment was revoked but no notification has been sent to %s", invitee);
+            }
         }
     }
 

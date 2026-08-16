@@ -1,13 +1,17 @@
 package project;
 
 import com.trello.clone.data.model.Project;
+import com.trello.clone.data.repository.NotificationRepository;
 import com.trello.clone.data.repository.ProjectRepository;
 import com.trello.clone.data.repository.TaskRepository;
 import com.trello.clone.service.ProjectService;
 import com.trello.clone.service.exception.BadRequestException;
+import com.trello.clone.service.exception.GenericException;
 import com.trello.clone.service.exception.NotFoundException;
 import com.trello.clone.service.exception.UnauthorizedException;
 import com.trello.clone.web.model.project.CreateProjectRequest;
+import com.trello.clone.web.model.project.ProjectInvitationResponse;
+import com.trello.clone.web.model.project.ProjectResponse;
 import com.trello.clone.web.model.project.UpdateProjectRequest;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,15 +25,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectServiceTest {
@@ -46,15 +46,19 @@ class ProjectServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private NotificationRepository notificationRepository;
+
     private ProjectService projectService;
 
     @BeforeEach
     void setUp() {
-        projectService = new ProjectService(projectRepository, taskRepository);
+        projectService = new ProjectService(projectRepository, taskRepository, notificationRepository);
     }
 
     private Project board() {
         Project project = Project.create("Board", OWNER);
+        project.setId(PROJECT_ID);
         project.addPhases(List.of("To Do", "Doing"));
         project.invite(MEMBER);
         project.acceptInvite(MEMBER);
@@ -270,7 +274,7 @@ class ProjectServiceTest {
                 () -> projectService.deleteProject(PROJECT_ID, MEMBER));
 
         verify(projectRepository, never()).delete(any(Project.class));
-        verify(taskRepository, never()).delete("projectId", PROJECT_ID);
+        verify(taskRepository, never()).deleteByProject(any());
     }
 
     @Test
@@ -280,7 +284,7 @@ class ProjectServiceTest {
 
         projectService.deleteProject(PROJECT_ID, OWNER);
 
-        verify(taskRepository).delete("projectId", new Object[]{PROJECT_ID});
+        verify(taskRepository).deleteByProject(PROJECT_ID);
         verify(projectRepository).delete(project);
     }
 
@@ -301,5 +305,112 @@ class ProjectServiceTest {
         when(projectRepository.findProjectsByEmail(eq(MEMBER))).thenReturn(List.of(board()));
 
         assertEquals(1, projectService.getAllProjectsByUserEmail("  MEMBER@Example.COM ").size());
+    }
+
+    // NOTIFICATION TESTS
+
+    @Test
+    void updateProject_invitingSomeoneSendsTheNotification() {
+        Project project = board();
+        project.setId(PROJECT_ID);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+
+        UpdateProjectRequest request = new UpdateProjectRequest();
+        request.setUsersToInvite(Set.of(OUTSIDER));
+
+        projectService.updateProject(request, PROJECT_ID, OWNER);
+
+        verify(notificationRepository).addProjectInvite(OUTSIDER, project, OWNER);
+    }
+
+    @Test
+    void updateProject_revokingAnInviteRemovesTheNotification() {
+        Project project = board();
+        project.setId(PROJECT_ID);
+        project.invite(OUTSIDER);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+
+        UpdateProjectRequest request = new UpdateProjectRequest();
+        request.setInvitesToRevoke(Set.of(OUTSIDER));
+
+        projectService.updateProject(request, PROJECT_ID, OWNER);
+
+        verify(notificationRepository).removeProjectInvite(OUTSIDER, PROJECT_ID.toHexString());
+    }
+
+    @Test
+    void updateProject_succeedsEvenIfTheNotificationFails() {
+        Project project = board();
+        project.setId(PROJECT_ID);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+        doThrow(new RuntimeException("Redis down"))
+                .when(notificationRepository).addProjectInvite(anyString(), any(Project.class), anyString());
+
+        UpdateProjectRequest request = new UpdateProjectRequest();
+        request.setUsersToInvite(Set.of(OUTSIDER));
+
+        ProjectResponse response = projectService.updateProject(request, PROJECT_ID, OWNER);
+
+        assertTrue(response.getInvitedUsers().contains(OUTSIDER));
+        verify(projectRepository).update(project);
+    }
+
+    @Test
+    void updateProject_doesNotNotifyIfTheSaveFails() {
+        Project project = board();
+        project.setId(PROJECT_ID);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+        doThrow(new RuntimeException("Mongo down"))
+                .when(projectRepository).update(any(Project.class));
+
+        UpdateProjectRequest request = new UpdateProjectRequest();
+        request.setUsersToInvite(Set.of(OUTSIDER));
+
+        assertThrows(GenericException.class,
+                () -> projectService.updateProject(request, PROJECT_ID, OWNER));
+
+        verify(notificationRepository, never())
+                .addProjectInvite(anyString(), any(Project.class), anyString());
+    }
+
+    @Test
+    void acceptInvite_clearsTheInvitationNotification() {
+        Project project = Project.create("Board", OWNER);
+        project.setId(PROJECT_ID);
+        project.invite(OUTSIDER);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+
+        projectService.acceptInvite(PROJECT_ID, OUTSIDER);
+
+        verify(notificationRepository).removeProjectInvite(OUTSIDER, PROJECT_ID.toHexString());
+    }
+
+    @Test
+    void declineInvite_clearsTheInvitationAndItsNotification() {
+        Project project = Project.create("Board", OWNER);
+        project.setId(PROJECT_ID);
+        project.invite(OUTSIDER);
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(project);
+
+        projectService.declineInvite(PROJECT_ID, OUTSIDER);
+
+        assertFalse(project.isInvited(OUTSIDER));
+        assertFalse(project.isMember(OUTSIDER), "Refusal must not allow to enter the team");
+        verify(notificationRepository).removeProjectInvite(OUTSIDER, PROJECT_ID.toHexString());
+    }
+
+    @Test
+    void getPendingInvitations_onlyExposesNameAndOwner() {
+        Project project = board();
+        project.setId(PROJECT_ID);
+        project.invite(OUTSIDER);
+        when(projectRepository.findByPendingInvite(OUTSIDER)).thenReturn(List.of(project));
+
+        List<ProjectInvitationResponse> invitations =
+                projectService.getPendingInvitations(OUTSIDER);
+
+        assertEquals(1, invitations.size());
+        assertEquals("Board", invitations.getFirst().getName());
+        assertEquals(OWNER, invitations.getFirst().getOwner());
     }
 }
