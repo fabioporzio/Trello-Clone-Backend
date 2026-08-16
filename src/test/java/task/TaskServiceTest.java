@@ -21,6 +21,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -362,6 +364,150 @@ class TaskServiceTest {
         TaskResponse response = taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
 
         assertTrue(response.getAssignees().contains(OWNER));
+        verify(taskRepository).update(task);
+    }
+
+    // DEADLINE TESTS
+
+    @Test
+    void deleteTask_cancelsTheScheduledDeadline() {
+        Task task = taskInToDo();
+        task.scheduleFor(LocalDate.now(ZoneOffset.UTC).plusDays(5));
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        taskService.deleteTask(OWNER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository).cancel(TASK_ID);
+    }
+
+    @Test
+    void deleteTask_clearsTheDeadlineNotificationOfItsAssignees() {
+        Task task = taskInToDo();
+        task.assign(Set.of(MEMBER));
+        task.scheduleFor(LocalDate.now(ZoneOffset.UTC).plusDays(5));
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        taskService.deleteTask(OWNER, PROJECT_ID, TASK_ID);
+
+        verify(notificationRepository).removeDeadlineNotification(MEMBER, TASK_ID.toHexString());
+    }
+
+    @Test
+    void deleteTask_withoutAssignees_clearsTheWholeTeam() {
+        Task task = taskInToDo();
+        task.scheduleFor(LocalDate.now(ZoneOffset.UTC).plusDays(5));
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        taskService.deleteTask(OWNER, PROJECT_ID, TASK_ID);
+
+        verify(notificationRepository).removeDeadlineNotification(OWNER, TASK_ID.toHexString());
+        verify(notificationRepository).removeDeadlineNotification(MEMBER, TASK_ID.toHexString());
+    }
+
+    @Test
+    void updateTask_completingATaskClearsItsDeadline() {
+        Task task = taskInToDo();
+        task.scheduleFor(LocalDate.now(ZoneOffset.UTC).plusDays(5));
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setCompleted(true);
+
+        taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository).cancel(TASK_ID);
+    }
+
+    @Test
+    void updateTask_completingAnAlreadyCompletedTaskDoesNothing() {
+        Task task = taskInToDo();
+        task.setCompleted(true);
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setCompleted(true);
+
+        taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository, never()).cancel(any());
+        verify(notificationRepository, never())
+                .removeDeadlineNotification(anyString(), anyString());
+    }
+
+    @Test
+    void updateTask_reopeningATaskDoesNotClearAnything() {
+        Task task = taskInToDo();
+        task.setCompleted(true);
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setCompleted(false);
+
+        taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository, never()).cancel(any());
+    }
+
+    @Test
+    void updateTask_withoutTouchingCompleted_leavesTheDeadlineAlone() {
+        Task task = taskInToDo();
+        task.scheduleFor(LocalDate.now(ZoneOffset.UTC).plusDays(5));
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setTitle("Title updated");
+
+        taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository, never()).cancel(any());
+    }
+
+    @Test
+    void updateTask_settingADeadlineSchedulesIt() {
+        Task task = taskInToDo();
+        LocalDate deadline = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setEndDate(deadline);
+
+        taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        verify(deadlineRepository).scheduleNotification(TASK_ID, deadline);
+    }
+
+    @Test
+    void updateTask_succeedsEvenIfTheDeadlineCannotBeScheduled() {
+        Task task = taskInToDo();
+        LocalDate deadline = LocalDate.now(ZoneOffset.UTC).plusDays(5);
+
+        when(projectRepository.findById(PROJECT_ID)).thenReturn(board());
+        when(taskRepository.findByIdAndProject(TASK_ID, PROJECT_ID)).thenReturn(task);
+        when(deadlineRepository.scheduleNotification(any(), any()))
+                .thenThrow(new RuntimeException("[TEST] simulated Redis outage"));
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setEndDate(deadline);
+
+        TaskResponse response = taskService.updateTask(request, MEMBER, PROJECT_ID, TASK_ID);
+
+        assertEquals(deadline, response.getEndDate());
         verify(taskRepository).update(task);
     }
 }

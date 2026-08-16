@@ -40,7 +40,7 @@ public class DeadlineRepository {
         }
     }
 
-    public long calculateNotificationTTL(Instant taskDeadline) {
+    public static long calculateNotificationTTL(Instant taskDeadline) {
         // TTL must end 1 day before the deadline
         Instant notificationTime = taskDeadline.minus(1, ChronoUnit.DAYS);
 

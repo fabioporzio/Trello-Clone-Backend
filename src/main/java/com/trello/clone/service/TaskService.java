@@ -195,9 +195,11 @@ public class TaskService {
         notifyAssignments(task, requestSender, justAssigned, justUnassigned);
 
         if (request.getEndDate() != null) {
-            boolean success = deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
-            if (!success) {
-                throw new GenericException("Deadline not scheduled due to server error");
+            try {
+                deadlineRepository.scheduleNotification(task.getId(), request.getEndDate());
+            }
+            catch (Exception e) {
+                Log.errorf(e, "Deadline saved but not scheduled for task %s", task.getId());
             }
         }
 
