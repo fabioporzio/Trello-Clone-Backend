@@ -1,3 +1,5 @@
+![Build](https://github.com/fabioporzio/Trello-Clone-Backend/actions/workflows/main.yml/badge.svg)
+
 # Trello Clone — Backend API
 
 A Kanban board REST API built with Quarkus, MongoDB and Redis. Users create projects

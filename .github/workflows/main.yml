@@ -2,18 +2,16 @@ name: Workflow Trello Clone Backend
 
 on:
   push:
-    branches:
-      - master
-      
+    branches: [master]
   pull_request:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
   backend_build:
     name: Build & Test Java Code
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,4 +24,10 @@ jobs:
           cache: 'maven'
 
       - name: Maven Build & Test
-        run: mvn clean install 
+        run: ./mvnw -B verify
+
+      - name: Publish test results
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
