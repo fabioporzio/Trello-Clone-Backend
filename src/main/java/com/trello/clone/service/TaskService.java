@@ -176,7 +176,9 @@ public class TaskService {
             task.moveTo(requirePhase(project, request.getPhase()));
         }
 
+        boolean justCompleted = false;
         if (request.getCompleted() != null) {
+            justCompleted = request.getCompleted() && !task.isCompleted();
             task.setCompleted(request.getCompleted());
         }
 
@@ -185,6 +187,11 @@ public class TaskService {
         }
 
         update(task);
+
+        if (justCompleted) {
+            clearDeadline(task, project);
+        }
+
         notifyAssignments(task, requestSender, justAssigned, justUnassigned);
 
         if (request.getEndDate() != null) {
@@ -223,6 +230,8 @@ public class TaskService {
                 Log.errorf(e, "Task deleted but its notification was not removed for %s", assignee);
             }
         }
+
+        clearDeadline(task, project);
     }
 
     // TASK ASSIGNMENT NOTIFICATION FLOW
@@ -250,6 +259,27 @@ public class TaskService {
                 notificationRepository.removeTaskAssignment(invitee, taskId);
             } catch (Exception e) {
                 Log.errorf(e, "Task assignment was revoked but no notification has been sent to %s", invitee);
+            }
+        }
+    }
+
+    // DEADLINE NOTIFICATIONS MANAGEMENT
+
+    // TaskService
+    private void clearDeadline(Task task, Project project) {
+        deadlineRepository.cancel(task.getId());
+
+        Collection<String> recipients = task.getAssignees().isEmpty()
+                ? project.getTeam()
+                : task.getAssignees();
+
+        String taskId = task.getId().toHexString();
+        for (String recipient : recipients) {
+            try {
+                notificationRepository.removeDeadlineNotification(recipient, taskId);
+            }
+            catch (Exception e) {
+                Log.errorf(e, "Deadline notification not removed for %s", recipient);
             }
         }
     }

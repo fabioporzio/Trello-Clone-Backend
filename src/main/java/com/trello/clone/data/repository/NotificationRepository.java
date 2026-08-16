@@ -12,6 +12,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @ApplicationScoped
@@ -19,6 +20,7 @@ public class NotificationRepository {
 
     private static final String PREFIX = "trello-clone:users:";
     private static final long SEVEN_DAYS_TTL = 7 * 24 * 60 * 60;
+    private static final long TWO_DAYS_TTL = 2 * 24 * 60 * 60;
 
     private final RedisDataSource redisDataSource;
     private final HashCommands<String, String, Notification> hashCommands;
@@ -126,5 +128,36 @@ public class NotificationRepository {
 
     private static String deterministicId(String seed) {
         return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    // DEADLINE NOTIFICATIONS
+
+    public void addDeadlineNotification(Task task, Collection<String> recipients) {
+        String taskId = task.getId().toHexString();
+        String formattedDate = task.getEndDate().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+
+        for (String recipient : recipients) {
+            String target = EmailUtils.normalize(recipient);
+
+            Notification notification = new Notification(
+                    target,
+                    "deadline",
+                    taskId,
+                    null,
+                    Instant.now().toString(),
+                    "Task " + task.getTitle() + " is due on " + formattedDate
+            );
+
+            store(target, deadlineId(taskId, target), notification);
+        }
+    }
+
+    public void removeDeadlineNotification(String receiver, String taskId) {
+        String target = EmailUtils.normalize(receiver);
+        hashCommands.hdel(inboxKey(target), deadlineId(taskId, target));
+    }
+
+    private static String deadlineId(String taskId, String receiver) {
+        return deterministicId("deadline:" + taskId + ":" + receiver);
     }
 }

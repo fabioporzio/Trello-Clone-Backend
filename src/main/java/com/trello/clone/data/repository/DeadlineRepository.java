@@ -1,5 +1,6 @@
 package com.trello.clone.data.repository;
 
+import io.quarkus.logging.Log;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.keys.KeyCommands;
 import io.quarkus.redis.datasource.value.ValueCommands;
@@ -9,6 +10,7 @@ import org.bson.types.ObjectId;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 @ApplicationScoped
@@ -23,20 +25,19 @@ public class DeadlineRepository {
     }
 
     public boolean scheduleNotification(ObjectId taskId, LocalDate deadline) {
-        Instant taskDeadline = Instant.from(deadline);
+        Instant taskDeadline = deadline.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
 
         long ttl = calculateNotificationTTL(taskDeadline);
-        System.out.println("TTL: " + ttl);
+        Log.debugf("Deadline TTL for task %s: %d seconds", taskId, ttl);
 
-        String key = "trello-clone|deadlines|task|" + taskId;
+        String key = "trello-clone:deadlines:task:" + taskId;
         if (ttl > 0) {
             stringCommands.setex(key, ttl, "placeholder");
+            return  true;
         }
         else {
             return false;
         }
-
-        return keyCommands.exists(key);
     }
 
     public long calculateNotificationTTL(Instant taskDeadline) {
@@ -51,15 +52,15 @@ public class DeadlineRepository {
             Duration duration = Duration.between(now, notificationTime);
             return duration.toSeconds();
         }
-        else {
-            if (taskDeadline.isBefore(now)) {
-                // Deadline is already expired, so we return a negative number not to set the key in redis
-                return 0;
-            }
-            else {
-                // Deadline will happen before 24 hours, so TTL is set to 1 to trigger immediate notification
-                return 1;
-            }
+        if (taskDeadline.isBefore(now)) {
+            return 0;
         }
+        else {
+            return 1;
+        }
+    }
+
+    public void cancel(ObjectId taskId) {
+        keyCommands.del("trello-clone:deadlines:task:" + taskId);
     }
 }
