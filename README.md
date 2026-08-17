@@ -149,6 +149,8 @@ All endpoints require a Bearer access token unless marked public. Resources are
 annotated `@DenyAll` at class level, so a new endpoint is closed by default until
 explicitly opened.
 
+Demo keys replaced by environment configuration in production.
+
 ### Authentication
 
 | Method | Path | Description |
