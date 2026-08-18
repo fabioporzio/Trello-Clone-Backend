@@ -1,5 +1,6 @@
 package authentication;
 
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 
+@QuarkusTest
 public class LoginTest {
 
     private static final String PASSWORD = "TestPass123!";
