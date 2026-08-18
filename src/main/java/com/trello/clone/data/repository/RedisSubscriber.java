@@ -5,41 +5,51 @@ import com.trello.clone.data.model.Task;
 import io.quarkus.logging.Log;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.pubsub.PubSubCommands;
-import io.quarkus.runtime.Startup;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import org.bson.types.ObjectId;
 
 import java.util.Collection;
 
 @ApplicationScoped
-@Startup // We want to create the bean instance on startup to subscribe to the channel.
 public class RedisSubscriber {
 
-    private final PubSubCommands<String> pub;
-    private final PubSubCommands.RedisSubscriber subscriber;
+    private final RedisDataSource redisDataSource;
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
     private final NotificationRepository notificationRepository;
 
+    private PubSubCommands.RedisSubscriber subscriber;
+
     public RedisSubscriber(
-            RedisDataSource ds,
+            RedisDataSource redisDataSource,
             ProjectRepository projectRepository,
             TaskRepository taskRepository,
             NotificationRepository notificationRepository
     ) {
-        pub = ds.pubsub(String.class);
+        this.redisDataSource = redisDataSource;
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.notificationRepository = notificationRepository;
-        subscriber = pub.subscribe("__keyevent@0__:expired", message -> {
-            handleMessage(message);
-        });
+    }
+
+    void onStart(@Observes StartupEvent event) {
+        try {
+            subscriber = redisDataSource.pubsub(String.class)
+                    .subscribe("__keyevent@0__:expired", this::handleMessage);
+            Log.info("Subscribed to Redis deadline expiry events");
+        } catch (Exception e) {
+            Log.error("Could not subscribe to Redis: deadline reminders are disabled", e);
+        }
     }
 
     @PreDestroy
-    public void terminate() {
-        subscriber.unsubscribe(); // Unsubscribe from all subscribed channels
+    void terminate() {
+        if (subscriber != null) {
+            subscriber.unsubscribe();
+        }
     }
 
     private void handleMessage(String message) {
@@ -67,8 +77,7 @@ public class RedisSubscriber {
             }
 
             notificationRepository.addDeadlineNotification(task, recipients);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Log.errorf(e, "Failed to handle deadline event: %s", message);
         }
     }
