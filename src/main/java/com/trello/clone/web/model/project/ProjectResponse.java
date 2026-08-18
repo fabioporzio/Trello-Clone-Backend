@@ -1,19 +1,36 @@
 package com.trello.clone.web.model.project;
 
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.util.List;
+import java.util.Set;
 
+@Schema(description = "Project's details issued after JWT access token validation")
 public class ProjectResponse {
 
+    @Schema(description = "Project ObjectId")
     private ObjectId id;
-    private String name;
-    private List<String> phases;
-    private String owner;
-    private List<String> team;
-    private List<String> invitedUsers;
 
-    public ProjectResponse(ObjectId id, String name, List<String> phases, String owner, List<String> team,  List<String> invitedUsers) {
+    @Schema(description = "Project Name")
+    private String name;
+
+    @Schema(description = "Project Phases")
+    private List<String> phases;
+
+    @Schema(description = "Project Owner")
+    private String owner;
+
+    @Schema(description = "Project Team members")
+    private Set<String> team;
+
+    @Schema(description = "Project Invited Users")
+    private Set<String> invitedUsers;
+
+    public ProjectResponse() {
+    }
+
+    public ProjectResponse(ObjectId id, String name, List<String> phases, String owner, Set<String> team, Set<String> invitedUsers) {
         this.id = id;
         this.name = name;
         this.phases = phases;
@@ -54,19 +71,19 @@ public class ProjectResponse {
         this.owner = owner;
     }
 
-    public List<String> getTeam() {
+    public Set<String> getTeam() {
         return team;
     }
 
-    public void setTeam(List<String> team) {
+    public void setTeam(Set<String> team) {
         this.team = team;
     }
 
-    public List<String> getInvitedUsers() {
+    public Set<String> getInvitedUsers() {
         return invitedUsers;
     }
 
-    public void setInvitedUsers(List<String> invitedUsers) {
+    public void setInvitedUsers(Set<String> invitedUsers) {
         this.invitedUsers = invitedUsers;
     }
 }

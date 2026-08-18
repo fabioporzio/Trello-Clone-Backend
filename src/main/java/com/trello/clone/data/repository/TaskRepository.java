@@ -3,34 +3,54 @@ package com.trello.clone.data.repository;
 import com.trello.clone.data.model.Task;
 import io.quarkus.mongodb.panache.PanacheMongoRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
 public class TaskRepository implements PanacheMongoRepository<Task> {
 
+    public Task findByIdAndProject(ObjectId taskId, ObjectId projectId) {
+        return find("{'_id': ?1, 'projectId': ?2}", taskId, projectId).firstResult();
+    }
+
+    public long renamePhase(ObjectId projectId, String oldPhase, String newPhase) {
+        return update("phase = ?1", newPhase)
+                .where("projectId = ?1 and phase = ?2", projectId, oldPhase);
+    }
+
+    public long countByPhase(ObjectId projectId, String phase) {
+        return count("projectId = ?1 and phase = ?2", projectId, phase);
+    }
+
+    public void deleteByProject(ObjectId projectId) {
+        delete("projectId = ?1", projectId);
+    }
+
+    public List<Task> findDueBy(LocalDate date) {
+        return list("{'endDate': {'$lte': ?1}, 'completed': false, 'notifiedAt': null}", date);
+    }
+
     public List<Task> getTasksByProjectIdTagsAndAssignees(
             ObjectId projectId,
             List<String> tags,
-            List<String> assignees
+            Set<String> assignees
     ) {
-        StringBuilder query = new StringBuilder("projectId = ?1");
-        List<Object> params = new ArrayList<>();
-        params.add(projectId);
+        Document filter = new Document("projectId", projectId);
 
         if (tags != null && !tags.isEmpty()) {
-            query.append(" and tags in ?").append(params.size() + 1);
-            params.add(tags);
+            filter.append("tags", new Document("$in", tags));
         }
 
         if (assignees != null && !assignees.isEmpty()) {
-            query.append(" and assignees in ?").append(params.size() + 1);
-            params.add(assignees);
+            filter.append("assignees", new Document("$in", assignees));
         }
 
-        return list(query.toString(), params.toArray());
+        return mongoCollection().find(filter).into(new ArrayList<>());
     }
 
 }

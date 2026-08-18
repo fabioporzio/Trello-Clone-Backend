@@ -1,42 +1,136 @@
 package com.trello.clone.data.model;
 
+import com.trello.clone.service.exception.BadRequestException;
+import com.trello.clone.utils.Labels;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import org.bson.types.ObjectId;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.*;
 
 @MongoEntity(collection = "tasks")
 public class Task {
+
+    private static final int MAX_TITLE_LENGTH = 100;
+    private static final int MAX_DESCRIPTION_LENGTH = 10000;
+    private static final int MAX_TAG_LENGTH = 60;
+    private static final int MAX_TAGS = 20;
 
     private ObjectId id;
     private String title;
     private String description;
     private boolean completed;
     private String phase;
-    private List<String> tags;
-    private List<String> assignees;
-    private String endDate;
+    private List<String> tags = new ArrayList<>();
+    private Set<String> assignees = new LinkedHashSet<>();
+    private LocalDate endDate;
     private ObjectId projectId;
 
     public Task() {
     }
 
-    public Task(String title, String description, boolean completed, String phase, List<String> tags, List<String> assignees, String endDate, ObjectId projectId) {
-        this.title = title;
-        this.description = description;
-        this.completed = completed;
-        this.phase = phase;
-        this.tags = tags;
-        this.assignees = assignees;
-        this.endDate = endDate;
-        this.projectId = projectId;
+    public static Task create(String name, String description, String phase, ObjectId projectId) {
+        Task task = new Task();
+        task.rename(name);
+        task.describe(description);
+        task.setCompleted(false);
+        task.moveTo(phase);
+        task.setProjectId(projectId);
+        return task;
+    }
+
+    // BEHAVIOURS
+    public void rename(String newName) {
+        if (newName == null || newName.isBlank()) {
+            throw new BadRequestException("Task name cannot be empty");
+        }
+
+        String trimmed = newName.trim();
+        if (trimmed.length() > MAX_TITLE_LENGTH) {
+            throw new BadRequestException("Task title cannot exceed " + MAX_TITLE_LENGTH + " characters");
+        }
+        this.title = trimmed;
+    }
+
+    public void describe(String description) {
+        if (description == null || description.isBlank()) {
+            this.description = null;
+            return;
+        }
+        String trimmed = description.trim();
+        if (trimmed.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new BadRequestException("Task description cannot exceed " + MAX_DESCRIPTION_LENGTH + " characters");
+        }
+        this.description = trimmed;
+    }
+
+    public void moveTo(String newPhase) {
+        if (newPhase == null || newPhase.isBlank()) {
+            throw new BadRequestException("Task phase cannot be empty");
+        }
+
+        this.phase = newPhase.trim();
+    }
+
+    public void scheduleFor(LocalDate newDeadline) {
+        if (newDeadline != null && newDeadline.isBefore(LocalDate.now(ZoneOffset.UTC))) {
+            throw new BadRequestException("Deadline can't be in the past");
+        }
+        this.endDate = newDeadline;
+    }
+
+    public void addTags(Collection<String> tagsToAdd) {
+        List<String> candidates = new ArrayList<>(tags);
+        for (String tag : tagsToAdd) {
+            Labels.addDistinct(candidates, requireTag(tag));
+        }
+
+        if (candidates.size() > MAX_TAGS) {
+            throw new BadRequestException("A task cannot have more than " + MAX_TAGS + " tags");
+        }
+
+        this.tags = candidates;
+    }
+
+    public void removeTags(Collection<String> tagsToRemove) {
+        for (String tag : tagsToRemove) {
+            Labels.remove(tags, requireTag(tag));
+        }
+    }
+
+    public void renameTag(String oldName, String newName) {
+        int index = Labels.indexOf(tags, requireTag(oldName));
+        if (index < 0) {
+            throw new BadRequestException("Unknown tag: " + oldName);
+        }
+
+        String renamed = requireTag(newName);
+        int clash = Labels.indexOf(tags, renamed);
+        if (clash >= 0 && clash != index) {
+            throw new BadRequestException("A tag named " + renamed + " already exists");
+        }
+
+        tags.set(index, renamed);
+    }
+
+    private static String requireTag(String tag) {
+        return Labels.require(tag, MAX_TAG_LENGTH, "Tag names").toLowerCase(Locale.ROOT);
+    }
+
+    public void assign(Collection<String> emails) {
+        assignees.addAll(emails);
+    }
+
+    public void unassign(Collection<String> emails) {
+        assignees.removeAll(emails);
     }
 
     public ObjectId getId() {
         return id;
     }
 
-    public void setId(ObjectId id) {
+    public  void setId(ObjectId id) {
         this.id = id;
     }
 
@@ -77,22 +171,22 @@ public class Task {
     }
 
     public void setTags(List<String> tags) {
-        this.tags = tags;
+        this.tags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
     }
 
-    public List<String> getAssignees() {
+    public Set<String> getAssignees() {
         return assignees;
     }
 
-    public void setAssignees(List<String> assignees) {
-        this.assignees = assignees;
+    public void setAssignees(Set<String> assignees) {
+        this.assignees = assignees == null ? new LinkedHashSet<>() : new LinkedHashSet<>(assignees);
     }
 
-    public String getEndDate() {
+    public LocalDate getEndDate() {
         return endDate;
     }
 
-    public void setEndDate(String endDate) {
+    public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
     }
 

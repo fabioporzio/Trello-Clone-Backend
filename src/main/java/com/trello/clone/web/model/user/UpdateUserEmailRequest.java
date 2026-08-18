@@ -2,27 +2,19 @@ package com.trello.clone.web.model.user;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
+@Schema(description = "Model for user's email update")
 public class UpdateUserEmailRequest {
 
-    @NotBlank(message = "Current email is required")
-    @Email(message = "Invalid email format")
-    private String currentEmail;
-
+    @Schema(description = "User new email address", examples = "fabio00@example.com")
     @NotBlank(message = "New email is required")
     @Email(message = "Invalid email format")
     private String newEmail;
 
+    @Schema(description = "User password", examples = "S3cureP@ssw0rd")
     @NotBlank(message = "Password is required")
     private String password;
-
-    public String getCurrentEmail() {
-        return currentEmail;
-    }
-
-    public void setCurrentEmail(String currentEmail) {
-        this.currentEmail = currentEmail;
-    }
 
     public String getNewEmail() {
         return newEmail;

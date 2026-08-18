@@ -4,16 +4,21 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
+@Schema(description = "Info for new user registration")
 public class CreateUserRequest {
 
+    @Schema(description = "User email address", examples = "fabio@example.com")
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
 
+    @Schema(description = "User username", examples = "fabio")
     @NotBlank(message = "Username is required")
     private String username;
 
+    @Schema(description = "User password", examples = "S3cureP@ssw0rd")
     @NotBlank(message = "Password is required")
     @Size(min = 12, message = "Password must be at least 12 characters long")
     @Pattern(

@@ -1,32 +1,30 @@
 package com.trello.clone.data.repository;
 
-import io.quarkus.redis.datasource.RedisDataSource;
-import io.quarkus.redis.datasource.keys.KeyCommands;
-import io.quarkus.redis.datasource.value.ValueCommands;
+import com.trello.clone.data.model.User;
+import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
 public class AuthenticationRepository {
 
-    private final KeyCommands<String> keyCommands;
-    private final ValueCommands<String, String> stringCommands;
+    private final UserRepository userRepository;
 
-    public AuthenticationRepository(RedisDataSource redisDataSource) {
-        this.keyCommands = redisDataSource.key();
-        this.stringCommands = redisDataSource.value(String.class);
+    public AuthenticationRepository(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
-    public boolean saveRefreshToken(String refreshToken, String email) {
-        String redisKey = "trello-clone:users:" + email + ":session:refresh-token";
+    public User authenticate(String email, String password) {
+        User user = userRepository.findByEmail(email);
+        if (user != null) {
+            boolean matches = BcryptUtil.matches(password, user.getPassword());
 
-        stringCommands.setex(redisKey, 180, refreshToken);
-
-        return keyCommands.exists(redisKey);
-    }
-
-    public boolean isRefreshTokenValid(String email) {
-        String redisKey = "trello-clone:users:" + email + ":session:refresh-token";
-
-        return keyCommands.exists(redisKey);
+            if (matches) {
+                return user;
+            }
+            else {
+                return null;
+            }
+        }
+        return null;
     }
 }
