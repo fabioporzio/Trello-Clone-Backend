@@ -8,7 +8,10 @@ with tags, assignees and deadlines. Notifications are delivered through Redis, i
 deadline reminders triggered by key expiry events.
 
 Built as a portfolio project with a focus on **domain invariants, authorisation
-correctness and test coverage** rather than feature count.
+correctness and test coverage** rather than feature count. 
+
+Live demo available at https://trello-clone-backend-50ml.onrender.com/q/swagger-ui/.
+Please, note that the demo is hosted on a free tier, the first request after inactivity may take up to a minute.
 
 ---
 
