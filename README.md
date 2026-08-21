@@ -8,8 +8,26 @@ with tags, assignees and deadlines. Notifications are delivered through Redis, i
 deadline reminders triggered by key expiry events.
 
 Built as a portfolio project with a focus on **domain invariants, authorisation
-correctness and test coverage** rather than feature count.
+correctness and test coverage** rather than feature count. 
 
+## Live demo
+
+**Swagger UI:** https://<your-service>.onrender.com/q/swagger-ui
+
+Log in through `POST /api/auth/login` with:
+
+| Email | Password |
+|---|---|
+| `demo@trello-clone.dev` | `DemoPass123!` |
+
+Then paste the `accessToken` into the **Authorize** button at the top of Swagger.
+
+The demo account owns a board with four phases, five tasks, one teammate and one
+pending invitation. Two other accounts (`teammate@` and `invited@`) share the same
+password if you want to see the invitation flow from the other side.
+
+Hosted on a free tier — the first request after a period of inactivity may take up
+to a minute while the instance wakes up.
 ---
 
 ## Stack
