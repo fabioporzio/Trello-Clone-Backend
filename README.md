@@ -12,7 +12,7 @@ correctness and test coverage** rather than feature count.
 
 ## Live demo
 
-**Swagger UI:** https://<your-service>.onrender.com/q/swagger-ui
+**Swagger UI:** https://trello-clone-backend-50ml.onrender.com/q/swagger-ui/
 
 Log in through `POST /api/auth/login` with:
 
